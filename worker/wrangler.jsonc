@@ -1,0 +1,51 @@
+// AB Maintenance BD — Cloudflare Worker configuration.
+//
+// ✅ STEPS TO MAKE THIS WORK (see ../DEPLOYMENT_GUIDE.md for the full walkthrough):
+//
+//   1. Run `npx wrangler login`                          (log in to Cloudflare)
+//   2. Run `npm run db:create` inside `worker/`          (creates the D1 database)
+//   3. Copy the printed `database_id` and paste it into  "database_id" below.
+//   4. Run `npm run migrate:local`  (or `migrate:remote` after step 3)
+//   5. Run `npm run secret:put` and paste a long random string (the AUTH_SECRET).
+//   6. Run `npm run deploy`
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // Name of your Worker on Cloudflare. Change "ab-maintenance-bd-api" to your
+  // own project name if you prefer.
+  "name": "ab-maintenance-bd-api",
+
+  "main": "src/index.ts",
+
+  // Keep this recent so all modern runtime APIs (D1 sessions, etc.) are on.
+  "compatibility_date": "2025-10-01",
+
+  // ---------------------------------------------------------------
+  // D1 DATABASE BINDING
+  // `binding`       — the name used in code: env.DB
+  // `database_name` — the database you created with `wrangler d1 create`
+  // `database_id`   — paste the ID printed by `wrangler d1 create` here.
+  //                   ⚠️ NEVER invent it — it comes from the command output.
+  // `migrations_dir`— the folder with the numbered .sql migration files.
+  // ---------------------------------------------------------------
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ab-maintenance-db",
+      "database_id": "b47555d6-985f-42e6-87db-798967c9f78f",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Optional: serve the built frontend from this Worker (Workers Static
+  // Assets). See DEPLOYMENT_GUIDE.md §12 before enabling.
+  // "assets": {
+  //   "binding": "ASSETS",
+  //   "directory": "./public"
+  // },
+
+  // Production environment (secrets can be set per environment):
+  "env": {
+    "production": {}
+  }
+}

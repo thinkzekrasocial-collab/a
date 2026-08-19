@@ -1,0 +1,28 @@
+{
+  "name": "ab-maintenance-bd-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AB Maintenance BD — Cloudflare Worker + D1 backend (REST API).",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "login": "wrangler login",
+    "logout": "wrangler logout",
+    "whoami": "wrangler whoami",
+    "db:create": "wrangler d1 create ab-maintenance-db",
+    "db:list": "wrangler d1 list",
+    "migrate:create": "wrangler d1 migrations create ab-maintenance-db",
+    "migrate:local": "wrangler d1 migrations apply ab-maintenance-db --local",
+    "migrate:remote": "wrangler d1 migrations apply ab-maintenance-db --remote",
+    "db:query:local": "wrangler d1 execute ab-maintenance-db --local --command",
+    "db:query:remote": "wrangler d1 execute ab-maintenance-db --remote --command",
+    "secret:put": "wrangler secret put AUTH_SECRET",
+    "typecheck": "tsc --noEmit",
+    "deploy:prod": "wrangler deploy --env production"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.0.0",
+    "typescript": "^5.9.2",
+    "wrangler": "^4.0.0"
+  }
+}
