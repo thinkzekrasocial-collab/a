@@ -95,15 +95,6 @@ export default function LoginPage() {
             </form>
           )}
 
-          <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-            <p className="font-semibold text-slate-600">Demo accounts (password: Ab123456)</p>
-            <p className="mt-1">
-              <span className="font-medium">superadmin</span> · full access &nbsp;|&nbsp;{" "}
-              <span className="font-medium">manager</span> · parts &amp; stock &nbsp;|&nbsp;{" "}
-              <span className="font-medium">technician</span> · view only &nbsp;|&nbsp;{" "}
-              <span className="font-medium">viewer</span> · read-only
-            </p>
-          </div>
         </div>
         <p className="mt-6 text-center text-xs text-slate-500">
           © {new Date().getFullYear()} AB Maintenance BD
