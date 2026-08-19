@@ -38,9 +38,10 @@ export class Router {
     });
   }
 
-  match(pathname: string): { route: Route; params: Record<string, string> } | null {
+  match(pathname: string, method?: string): { route: Route; params: Record<string, string> } | null {
     const segments = pathname.split("/").filter(Boolean).map(decodeURIComponent);
     for (const route of this.routes) {
+      if (method && route.method !== method) continue;
       if (route.segments.length !== segments.length) continue;
       const params: Record<string, string> = {};
       let ok = true;
@@ -60,8 +61,8 @@ export class Router {
 
   async handle(req: Request, env: Env, user: import("./auth").SessionUser | null): Promise<Response> {
     const url = new URL(req.url);
-    const found = this.match(url.pathname);
-    if (!found || found.route.method !== req.method) {
+    const found = this.match(url.pathname, req.method);
+    if (!found) {
       return json({ error: "Not found." }, 404);
     }
     return found.route.handler(req, env, { params: found.params, query: url.searchParams }, user);
