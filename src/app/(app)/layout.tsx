@@ -1,33 +1,46 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
-import { getSessionUser, SESSION_COOKIE } from "@/lib/auth";
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { api, ApiClientError } from "@/lib/api";
 import { AppShell, type SessionInfo } from "@/components/AppShell";
 
-export const dynamic = "force-dynamic";
+type MeResponse = { user: SessionInfo };
 
-/**
- * Server-side auth gate: if the session cookie is missing/invalid or the
- * account is disabled, the user is redirected to /login. The UI shell only
- * renders menu items the user is actually permitted to see — and every API
- * endpoint re-checks the same permissions server-side.
- */
-export default async function AppLayout({ children }: { children: ReactNode }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  const session = await getSessionUser(token);
+/** Validate the production session through the Cloudflare Worker API. */
+export default function AppLayout({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [checking, setChecking] = useState(true);
 
-  if (!session) {
-    redirect("/login");
+  useEffect(() => {
+    let cancelled = false;
+    api<MeResponse>("/api/auth/me")
+      .then(({ user }) => {
+        if (!cancelled) {
+          setSession(user);
+          setChecking(false);
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (error instanceof ApiClientError && error.status === 401) {
+          router.replace("/login");
+        }
+        setChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  if (checking || !session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm text-slate-500">
+        Checking session…
+      </div>
+    );
   }
 
-  const sessionInfo: SessionInfo = {
-    id: session.id,
-    name: session.name,
-    username: session.username,
-    roles: session.roles,
-    permissions: session.permissions,
-  };
-
-  return <AppShell session={sessionInfo}>{children}</AppShell>;
+  return <AppShell session={session}>{children}</AppShell>;
 }
