@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { api } from "@/lib/api";
+import { api, useApi } from "@/lib/api";
 import { cn } from "@/components/ui";
 import { ToastProvider, useToast } from "@/components/Toast";
 
@@ -30,6 +30,14 @@ interface NavSection {
   title: string;
   perm?: string;
   items: NavItem[];
+}
+
+interface WorkbookMenu {
+  id: number;
+  name: string;
+  icon: string;
+  entity_type: "employee" | "part";
+  is_active: number;
 }
 
 function buildSections(perms: string[]): NavSection[] {
@@ -65,6 +73,8 @@ function buildSections(perms: string[]): NavSection[] {
     admin.push({ href: "/admin/users", label: "Users", icon: "👤" });
   if (has(perms, "settings.manage"))
     admin.push({ href: "/admin/roles", label: "Roles & Permissions", icon: "🔐" });
+  if (has(perms, "settings.manage"))
+    admin.push({ href: "/admin/menus", label: "Workbook Menus", icon: "📋" });
   if (has(perms, "audit.view"))
     admin.push({ href: "/admin/audit-logs", label: "Audit Logs", icon: "📜" });
   if (admin.length) sections.push({ title: "Administration", items: admin });
@@ -93,10 +103,12 @@ export function BrandLogo({ compact }: { compact?: boolean }) {
 function SidebarContent({
   session,
   pathname,
+  workbookMenus,
   onNavigate,
 }: {
   session: SessionInfo;
   pathname: string;
+  workbookMenus: WorkbookMenu[];
   onNavigate?: () => void;
 }) {
   const sections = buildSections(session.permissions);
@@ -148,6 +160,20 @@ function SidebarContent({
           </div>
         </div>
       ))}
+
+      {workbookMenus.length > 0 && (
+        <div className="mt-5">
+          <div className="px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Workbooks</div>
+          <div className="mt-1.5 space-y-0.5">
+            {workbookMenus.map((menu) => (
+              <Link key={menu.id} href={`/workbooks/${menu.id}`} onClick={onNavigate} className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                pathname === `/workbooks/${menu.id}` ? "bg-teal-600/20 font-medium text-teal-300" : "text-slate-300 hover:bg-slate-800 hover:text-white"
+              )}><span className="text-base">{menu.icon}</span>{menu.name}</Link>
+            ))}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
@@ -182,6 +208,8 @@ function ShellInner({
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
+  const { data: workbookData } = useApi<{ items: WorkbookMenu[] }>("/api/menus");
+  const visibleWorkbookMenus = (workbookData?.items ?? []).filter((menu) => menu.is_active === 1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -203,7 +231,7 @@ function ShellInner({
         <div className="border-b border-slate-800 px-4 py-4">
           <BrandLogo />
         </div>
-        <SidebarContent session={session} pathname={pathname} />
+        <SidebarContent session={session} pathname={pathname} workbookMenus={visibleWorkbookMenus} />
         <div className="border-t border-slate-800 p-3">
           <button
             onClick={logout}
@@ -235,6 +263,7 @@ function ShellInner({
             <SidebarContent
               session={session}
               pathname={pathname}
+              workbookMenus={visibleWorkbookMenus}
               onNavigate={() => setDrawerOpen(false)}
             />
             <div className="border-t border-slate-800 p-3">

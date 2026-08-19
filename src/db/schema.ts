@@ -270,6 +270,44 @@ export const employees = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Custom menus & per-record workbooks
+// ---------------------------------------------------------------------------
+
+export const customMenus = pgTable(
+  "custom_menus",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    entityType: text("entity_type").notNull(),
+    icon: text("icon").notNull().default("📋"),
+    description: text("description"),
+    columns: text("columns").notNull().default("[]"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: integer("is_active").notNull().default(1),
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("custom_menus_slug_unique").on(t.slug), index("custom_menus_sort_idx").on(t.sortOrder)]
+);
+
+export const menuSheetData = pgTable(
+  "menu_sheet_data",
+  {
+    id: serial("id").primaryKey(),
+    menuId: integer("menu_id")
+      .notNull()
+      .references(() => customMenus.id, { onDelete: "cascade" }),
+    entityId: integer("entity_id").notNull(),
+    data: text("data").notNull().default("{}"),
+    updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("menu_sheet_data_menu_entity_unique").on(t.menuId, t.entityId)]
+);
+
+// ---------------------------------------------------------------------------
 // Audit log
 // ---------------------------------------------------------------------------
 

@@ -1320,6 +1320,146 @@ async function deleteEmployee(req: Request, env: Env, user: SessionUser | null, 
 }
 
 // ---------------------------------------------------------------------------
+// Custom workbook menus
+// ---------------------------------------------------------------------------
+
+type WorkbookEntity = "employee" | "part";
+
+const DEFAULT_WORKBOOK_COLUMNS: Record<WorkbookEntity, object[]> = {
+  employee: [
+    { key: "phone", label: "Phone", type: "text" },
+    { key: "designation", label: "Designation", type: "text" },
+    { key: "department", label: "Department", type: "text" },
+    { key: "joining_date", label: "Joining date", type: "date" },
+    { key: "current_salary", label: "Salary", type: "number" },
+  ],
+  part: [
+    { key: "category", label: "Category", type: "text" },
+    { key: "supplier", label: "Supplier", type: "text" },
+    { key: "minimum_stock", label: "Minimum stock", type: "number" },
+  ],
+};
+
+function menuColumns(value: unknown, entityType: WorkbookEntity): object[] {
+  if (value === undefined || value === null) return DEFAULT_WORKBOOK_COLUMNS[entityType];
+  if (!Array.isArray(value) || value.length > 30) throw new HttpError(400, "Columns must be a list of at most 30 items.");
+  return value.map((item, i) => {
+    if (!item || typeof item !== "object") throw new HttpError(400, `Column ${i + 1} is invalid.`);
+    const c = item as Record<string, unknown>;
+    const key = reqString(c.key, `Column ${i + 1} key`, { max: 60 }).replace(/[^a-zA-Z0-9_]/g, "_");
+    const label = reqString(c.label, `Column ${i + 1} label`, { max: 80 });
+    const type = c.type === "number" || c.type === "date" || c.type === "textarea" ? c.type : "text";
+    return { key, label, type };
+  });
+}
+
+function jsonValue(value: string | null | undefined, fallback: unknown): unknown {
+  try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
+}
+
+function menuPayload<T extends { columns: string }>(row: T): T & { columns: unknown } {
+  return { ...row, columns: jsonValue(row.columns, []) };
+}
+
+async function listMenus(req: Request, env: Env, user: SessionUser | null): Promise<Response> {
+  if (!user) throw new HttpError(401, "Authentication required.");
+  const canManage = user.permissions.includes("settings.manage");
+  const canEmployee = user.permissions.includes("employee.view");
+  const canPart = user.permissions.includes("part.view");
+  if (!canManage && !canEmployee && !canPart) throw new HttpError(403, "You do not have permission to view workbooks.");
+  const rows = await all<{ columns: string; entity_type: WorkbookEntity; is_active: number }>(
+    env.DB,
+    `select id, name, slug, entity_type, icon, description, columns, sort_order, is_active
+     from custom_menus order by sort_order asc, id asc`
+  );
+  return json({ items: rows.filter((r) => canManage || (r.is_active === 1 && ((r.entity_type === "employee" && canEmployee) || (r.entity_type === "part" && canPart)))).map(menuPayload) });
+}
+
+async function createMenu(req: Request, env: Env, user: SessionUser | null): Promise<Response> {
+  const session = requirePerm(user, "settings.manage");
+  const b = await readBody<Record<string, unknown>>(req);
+  const name = reqString(b.name, "Menu name", { max: 80 });
+  const entityType = b.entity_type === "employee" || b.entity_type === "part" ? b.entity_type : null;
+  if (!entityType) throw new HttpError(400, "Entity type must be employee or part.");
+  const columns = menuColumns(b.columns, entityType);
+  const sortOrder = b.sort_order === undefined ? 0 : Number(b.sort_order);
+  if (!Number.isInteger(sortOrder)) throw new HttpError(400, "Sort order must be a whole number.");
+  const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${Date.now().toString(36)}`;
+  const duplicate = await one(env.DB, `select 1 as n from custom_menus where name = ?`, name);
+  if (duplicate) throw new HttpError(409, "A menu with this name already exists.");
+  const result = (await run(env.DB, `insert into custom_menus (name, slug, entity_type, icon, description, columns, sort_order, is_active, created_by) values (?, ?, ?, ?, ?, ?, ?, ?, ?)`, name, slug, entityType, optString(b.icon, 8) ?? "📋", optString(b.description, 500) ?? null, JSON.stringify(columns), sortOrder, b.is_active === false ? 0 : 1, session.id)) as { meta?: { last_row_id?: number } };
+  await audit(env, { userId: session.id, action: "Create", module: "Menus", recordId: result.meta?.last_row_id, description: `Workbook menu "${name}" created.` });
+  return json({ item: { id: result.meta?.last_row_id, name, slug, entity_type: entityType, columns } }, 201);
+}
+
+async function updateMenu(req: Request, env: Env, user: SessionUser | null, ctx: Ctx): Promise<Response> {
+  const session = requirePerm(user, "settings.manage");
+  const id = reqInt(ctx.params.id, "Menu ID");
+  const existing = await one<{ name: string }>(env.DB, `select name from custom_menus where id = ?`, id);
+  if (!existing) throw new HttpError(404, "Menu not found.");
+  const b = await readBody<Record<string, unknown>>(req);
+  const name = reqString(b.name, "Menu name", { max: 80 });
+  const entityType = b.entity_type === "employee" || b.entity_type === "part" ? b.entity_type : null;
+  if (!entityType) throw new HttpError(400, "Entity type must be employee or part.");
+  const columns = menuColumns(b.columns, entityType);
+  const sortOrder = Number(b.sort_order ?? 0);
+  if (!Number.isInteger(sortOrder)) throw new HttpError(400, "Sort order must be a whole number.");
+  const duplicate = await one(env.DB, `select 1 as n from custom_menus where name = ? and id != ?`, name, id);
+  if (duplicate) throw new HttpError(409, "A menu with this name already exists.");
+  await run(env.DB, `update custom_menus set name = ?, entity_type = ?, icon = ?, description = ?, columns = ?, sort_order = ?, is_active = ?, updated_at = datetime('now') where id = ?`, name, entityType, optString(b.icon, 8) ?? "📋", optString(b.description, 500) ?? null, JSON.stringify(columns), sortOrder, b.is_active === false ? 0 : 1, id);
+  await audit(env, { userId: session.id, action: "Update", module: "Menus", recordId: id, description: `Workbook menu "${name}" updated.` });
+  return json({ ok: true });
+}
+
+async function deleteMenu(req: Request, env: Env, user: SessionUser | null, ctx: Ctx): Promise<Response> {
+  const session = requirePerm(user, "settings.manage");
+  const id = reqInt(ctx.params.id, "Menu ID");
+  const existing = await one<{ name: string }>(env.DB, `select name from custom_menus where id = ?`, id);
+  if (!existing) throw new HttpError(404, "Menu not found.");
+  await run(env.DB, `delete from custom_menus where id = ?`, id);
+  await audit(env, { userId: session.id, action: "Delete", module: "Menus", recordId: id, description: `Workbook menu "${existing.name}" deleted.` });
+  return json({ ok: true });
+}
+
+async function workbookSheet(req: Request, env: Env, user: SessionUser | null, ctx: Ctx): Promise<Response> {
+  const menuId = reqInt(ctx.params.id, "Menu ID");
+  const menu = await one<{ id: number; name: string; entity_type: WorkbookEntity; icon: string; description: string | null; columns: string; is_active: number }>(env.DB, `select id, name, entity_type, icon, description, columns, is_active from custom_menus where id = ?`, menuId);
+  if (!menu) throw new HttpError(404, "Menu not found.");
+  requirePerm(user, user?.permissions.includes("settings.manage") ? "settings.manage" : menu.entity_type === "employee" ? "employee.view" : "part.view");
+  const query = new URL(req.url).searchParams;
+  const selectedId = optInt(query.get("entity_id"), "Entity ID");
+  const entities = menu.entity_type === "employee"
+    ? await all(env.DB, `select id, employee_code as code, name, employee_code || ' — ' || name as label from employees order by name asc`)
+    : await all(env.DB, `select id, part_code as code, part_name as name, part_code || ' — ' || part_name as label, current_balance from v_part_balance order by part_name asc`);
+  const activeId = selectedId ?? (entities[0] as { id?: number } | undefined)?.id;
+  const entity = activeId
+    ? menu.entity_type === "employee"
+      ? await one<Record<string, unknown>>(env.DB, `select id, employee_code, name, phone, designation, department, joining_date, current_salary, last_increment_date, status from employees where id = ?`, activeId)
+      : await one<Record<string, unknown>>(env.DB, `select * from v_part_balance where id = ?`, activeId)
+    : null;
+  if (selectedId && !entity) throw new HttpError(404, "Record not found.");
+  const stored = activeId ? await one<{ data: string }>(env.DB, `select data from menu_sheet_data where menu_id = ? and entity_id = ?`, menuId, activeId) : null;
+  const transactions = menu.entity_type === "part" && activeId
+    ? await all(env.DB, `select t.id, t.transaction_date, t.transaction_type, t.quantity, t.source, t.destination, t.supplier, t.reference_number, t.purpose, t.note, (p.opening_stock + sum(case when t.transaction_type = 'IN' then t.quantity when t.transaction_type = 'OUT' then -t.quantity else 0 end) over (partition by t.part_id order by t.transaction_date asc, t.id asc rows between unbounded preceding and current row)) as balance_after from stock_transactions t join parts p on p.id = t.part_id where t.part_id = ? order by t.transaction_date asc, t.id asc`, selectedId)
+    : [];
+  return json({ menu: menuPayload(menu), entities, entity, custom_data: jsonValue(stored?.data, {}), transactions });
+}
+
+async function saveWorkbookSheet(req: Request, env: Env, user: SessionUser | null, ctx: Ctx): Promise<Response> {
+  const menuId = reqInt(ctx.params.id, "Menu ID");
+  const menu = await one<{ entity_type: WorkbookEntity }>(env.DB, `select entity_type from custom_menus where id = ?`, menuId);
+  if (!menu) throw new HttpError(404, "Menu not found.");
+  const session = requirePerm(user, menu.entity_type === "employee" ? "employee.edit" : "part.edit");
+  const b = await readBody<Record<string, unknown>>(req);
+  const entityId = reqInt(b.entity_id, "Entity ID");
+  if (!b.data || typeof b.data !== "object" || Array.isArray(b.data)) throw new HttpError(400, "Sheet data must be an object.");
+  const table = menu.entity_type === "employee" ? "employees" : "parts";
+  if (!(await one(env.DB, `select id from ${table} where id = ?`, entityId))) throw new HttpError(404, "Record not found.");
+  await run(env.DB, `insert into menu_sheet_data (menu_id, entity_id, data, updated_by, updated_at) values (?, ?, ?, ?, datetime('now')) on conflict(menu_id, entity_id) do update set data = excluded.data, updated_by = excluded.updated_by, updated_at = excluded.updated_at`, menuId, entityId, JSON.stringify(b.data), session.id);
+  return json({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
 // Users & roles
 // ---------------------------------------------------------------------------
 
@@ -2077,6 +2217,14 @@ export function registerRoutes(router: Router): Router {
   router.add("POST", "/api/employees", (req, env, _c, u) => createEmployee(req, env, u).catch(errorResponse));
   router.add("PUT", "/api/employees/:id", (req, env, c, u) => updateEmployee(req, env, u, c).catch(errorResponse));
   router.add("DELETE", "/api/employees/:id", (req, env, c, u) => deleteEmployee(req, env, u, c).catch(errorResponse));
+
+  // Custom workbook menus
+  router.add("GET", "/api/menus", (req, env, _c, u) => listMenus(req, env, u).catch(errorResponse));
+  router.add("POST", "/api/menus", (req, env, _c, u) => createMenu(req, env, u).catch(errorResponse));
+  router.add("PUT", "/api/menus/:id", (req, env, c, u) => updateMenu(req, env, u, c).catch(errorResponse));
+  router.add("DELETE", "/api/menus/:id", (req, env, c, u) => deleteMenu(req, env, u, c).catch(errorResponse));
+  router.add("GET", "/api/menus/:id/sheet", (req, env, c, u) => workbookSheet(req, env, u, c).catch(errorResponse));
+  router.add("POST", "/api/menus/:id/sheet", (req, env, c, u) => saveWorkbookSheet(req, env, u, c).catch(errorResponse));
 
   // Users
   router.add("GET", "/api/users", (req, env, _c, u) => listUsers(req, env, u).catch(errorResponse));

@@ -26,6 +26,7 @@ import {
   parts,
   stockTransactions,
   employees,
+  customMenus,
 } from "./schema";
 import { ALL_PERMISSIONS, ROLE_TEMPLATES } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
@@ -247,6 +248,40 @@ async function seed() {
     { employeeCode: "EMP-005", name: "Alam Hossain", phone: "01711-000005", designation: "Maintenance Technician", department: "Maintenance", joiningDate: "2017-06-01", currentSalary: "26000", lastIncrementDate: "2024-01-01", status: "active" },
     { employeeCode: "EMP-006", name: "Rina Akter", phone: "01711-000006", designation: "Helper", department: "Production", joiningDate: "2022-02-01", currentSalary: "12000", lastIncrementDate: "2023-07-01", status: "inactive" },
   ]);
+
+  // 11) Default workbook menus — each record is opened as its own spreadsheet-style sheet.
+  await db.insert(customMenus).values([
+    {
+      name: "Employees Workbook",
+      slug: "employees-workbook",
+      entityType: "employee",
+      icon: "👷",
+      description: "One spreadsheet-style workbook for every employee.",
+      columns: JSON.stringify([
+        { key: "phone", label: "Phone", type: "text" },
+        { key: "designation", label: "Designation", type: "text" },
+        { key: "department", label: "Department", type: "text" },
+        { key: "joining_date", label: "Joining date", type: "date" },
+        { key: "current_salary", label: "Salary", type: "number" },
+      ]),
+      sortOrder: 10,
+      createdBy: adminId,
+    },
+    {
+      name: "Products Workbook",
+      slug: "products-workbook",
+      entityType: "part",
+      icon: "🧩",
+      description: "One product workbook with a live inventory ledger.",
+      columns: JSON.stringify([
+        { key: "category", label: "Category", type: "text" },
+        { key: "supplier", label: "Supplier", type: "text" },
+        { key: "minimum_stock", label: "Minimum stock", type: "number" },
+      ]),
+      sortOrder: 20,
+      createdBy: adminId,
+    },
+  ]).onConflictDoNothing();
 
   console.log("✅ Seed complete.");
   console.log("   Demo logins (password: Ab123456): superadmin, manager, technician, viewer");
