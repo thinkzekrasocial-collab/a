@@ -106,6 +106,27 @@ export async function GET(request: NextRequest) {
       `),
     ]);
 
+    const [partAvailability, machineAvailability] = await Promise.all([
+      q<{ id: number; part_code: string; part_name: string; unit_of_measure: string; current_balance: number; minimum_stock: number }>(sql`
+        select * from (
+          select p.id, p.part_code, p.part_name, p.unit_of_measure, p.minimum_stock,
+            (p.opening_stock + coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'IN'), 0) - coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'OUT'), 0))::float8 as current_balance
+          from parts p
+        ) pb order by pb.part_name asc limit 100
+      `),
+      q<{ id: number; machine_code: string; machine_name: string; status: string; model: string | null; machine_type_name: string; unit_name: string; floor_name: string }>(sql`
+        select m.id, m.machine_code, m.machine_name, m.status, m.model,
+          coalesce(mt.name, 'Unassigned') as machine_type_name,
+          coalesce(u.unit_name, 'Unassigned') as unit_name,
+          coalesce(f.floor_name, 'Unassigned') as floor_name
+        from machines m
+        left join machine_types mt on mt.id = m.machine_type_id
+        left join units u on u.id = m.unit_id
+        left join floors f on f.id = m.floor_id
+        order by m.machine_name asc limit 100
+      `),
+    ]);
+
     return Response.json({
       counts: counts ?? {
         units: 0,
@@ -122,6 +143,8 @@ export async function GET(request: NextRequest) {
       status_summary: statusSummary,
       recent_transactions: recentTx,
       low_stock_parts: lowStock,
+      part_availability: partAvailability,
+      machine_availability: machineAvailability,
     });
   } catch (error) {
     return errResponse(error);

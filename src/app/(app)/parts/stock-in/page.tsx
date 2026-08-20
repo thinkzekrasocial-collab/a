@@ -45,6 +45,8 @@ export default function StockInPage() {
     transaction_date: today(),
     source: "",
     supplier: "",
+    received_by: "",
+    storage_location: "",
     reference_number: "",
     note: "",
   });
@@ -61,6 +63,8 @@ export default function StockInPage() {
       quantity: number;
       source: string | null;
       supplier: string | null;
+      received_by: string | null;
+      storage_location: string | null;
       reference_number: string | null;
       part_code: string;
       part_name: string;
@@ -83,6 +87,8 @@ export default function StockInPage() {
         transaction_date: today(),
         source: "",
         supplier: "",
+        received_by: "",
+        storage_location: "",
         reference_number: "",
         note: "",
       });
@@ -162,6 +168,20 @@ export default function StockInPage() {
                 placeholder="e.g. SS Threads Ltd."
               />
             </Field>
+            <Field label="Received by">
+              <Input
+                value={form.received_by}
+                onChange={(e) => setForm({ ...form, received_by: e.target.value })}
+                placeholder="Person who received the stock"
+              />
+            </Field>
+            <Field label="Storage location">
+              <Input
+                value={form.storage_location}
+                onChange={(e) => setForm({ ...form, storage_location: e.target.value })}
+                placeholder="e.g. Store Room A"
+              />
+            </Field>
             <Field label="Reference number">
               <Input
                 value={form.reference_number}
@@ -193,7 +213,7 @@ export default function StockInPage() {
           ) : recentData.rows.length === 0 ? (
             <EmptyState icon="📥" title="No stock IN yet" message="Receipts will appear here." />
           ) : (
-            <Table headers={["Date", "Part", "Qty", "Source", "Supplier", "Ref", "By"]}>
+            <Table headers={["Date", "Part", "Qty", "Source", "Supplier", "Received by", "Location", "Ref", "By"]}>
               {recentData.rows.slice(0, 12).map((t) => (
                 <tr key={t.id}>
                   <Td>{fmtDate(t.transaction_date)}</Td>
@@ -203,6 +223,8 @@ export default function StockInPage() {
                   </Td>
                   <Td>{t.source ?? "—"}</Td>
                   <Td>{t.supplier ?? "—"}</Td>
+                  <Td>{t.received_by ?? "—"}</Td>
+                  <Td>{t.storage_location ?? "—"}</Td>
                   <Td>
                     {t.reference_number ? <Badge tone="slate">{t.reference_number}</Badge> : "—"}
                   </Td>

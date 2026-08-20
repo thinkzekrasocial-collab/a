@@ -149,15 +149,9 @@ export const machines = pgTable(
     id: serial("id").primaryKey(),
     machineCode: text("machine_code").notNull(),
     machineName: text("machine_name").notNull(),
-    machineTypeId: integer("machine_type_id")
-      .notNull()
-      .references(() => machineTypes.id),
-    unitId: integer("unit_id")
-      .notNull()
-      .references(() => units.id),
-    floorId: integer("floor_id")
-      .notNull()
-      .references(() => floors.id),
+    machineTypeId: integer("machine_type_id").references(() => machineTypes.id),
+    unitId: integer("unit_id").references(() => units.id),
+    floorId: integer("floor_id").references(() => floors.id),
     model: text("model"),
     serialNumber: text("serial_number"),
     manufacturer: text("manufacturer"),
@@ -227,6 +221,10 @@ export const stockTransactions = pgTable(
     referenceNumber: text("reference_number"),
     purpose: text("purpose"),
     note: text("note"),
+    receivedBy: text("received_by"),
+    storageLocation: text("storage_location"),
+    issuedBy: text("issued_by"),
+    workOrder: text("work_order"),
     createdBy: integer("created_by")
       .notNull()
       .references(() => users.id),
@@ -251,13 +249,14 @@ export const employees = pgTable(
     employeeCode: text("employee_code").notNull(),
     name: text("name").notNull(),
     phone: text("phone"),
+    city: text("city"),
     designation: text("designation"),
     department: text("department"),
     joiningDate: date("joining_date"),
-    currentSalary: numeric("current_salary", { precision: 14, scale: 2 })
-      .notNull()
-      .default("0"),
+    currentSalary: numeric("current_salary", { precision: 14, scale: 2 }).notNull().default("0"),
     lastIncrementDate: date("last_increment_date"),
+    offdaysTaken: integer("offdays_taken").notNull().default(0),
+    offdaysLeft: integer("offdays_left").notNull().default(0),
     status: text("status").notNull().default("active"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

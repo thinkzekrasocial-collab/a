@@ -147,6 +147,12 @@ function optNonNeg(v: unknown, field: string, fallback: number): number {
   return n;
 }
 
+function optNonNegInt(v: unknown, field: string, fallback: number): number {
+  const n = optNonNeg(v, field, fallback);
+  if (!Number.isInteger(n)) throw new HttpError(400, `${field} must be a whole number.`);
+  return n;
+}
+
 function paginate(query: URLSearchParams): { page: number; limit: number; offset: number } {
   const page = Math.max(1, parseInt(query.get("page") ?? "1", 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(query.get("limit") ?? "10", 10) || 10));
@@ -666,9 +672,9 @@ async function listMachines(req: Request, env: Env, user: SessionUser | null): P
     env.DB,
     `select m.*, mt.name as machine_type_name, u.unit_name, f.floor_name, f.floor_number
      from machines m
-     join machine_types mt on mt.id = m.machine_type_id
-     join units u on u.id = m.unit_id
-     join floors f on f.id = m.floor_id
+     left join machine_types mt on mt.id = m.machine_type_id
+     left join units u on u.id = m.unit_id
+     left join floors f on f.id = m.floor_id
      ${where}
      order by m.id desc
      limit ? offset ?`,
@@ -685,16 +691,21 @@ async function listMachines(req: Request, env: Env, user: SessionUser | null): P
 }
 
 async function validateMachineRelations(env: Env, b: Record<string, unknown>) {
-  const machineTypeId = reqInt(b.machine_type_id, "Machine type");
-  const unitId = reqInt(b.unit_id, "Unit");
-  const floorId = reqInt(b.floor_id, "Floor");
+  const machineTypeId = optInt(b.machine_type_id, "Machine type");
+  const unitId = optInt(b.unit_id, "Unit");
+  const floorId = optInt(b.floor_id, "Floor");
 
-  if (!(await exists(env, "machine_types", machineTypeId))) {
+  if (machineTypeId !== undefined && !(await exists(env, "machine_types", machineTypeId))) {
     throw new HttpError(404, "Machine type not found.");
   }
-  if (!(await exists(env, "units", unitId))) throw new HttpError(404, "Unit not found.");
-  const floor = await one(env.DB, `select 1 as n from floors where id = ? and unit_id = ?`, floorId, unitId);
-  if (!floor) throw new HttpError(404, "Floor not found in the selected unit.");
+  if (unitId !== undefined && !(await exists(env, "units", unitId))) {
+    throw new HttpError(404, "Unit not found.");
+  }
+  if (floorId !== undefined) {
+    if (unitId === undefined) throw new HttpError(400, "A unit is required when selecting a floor.");
+    const floor = await one(env.DB, `select 1 as n from floors where id = ? and unit_id = ?`, floorId, unitId);
+    if (!floor) throw new HttpError(404, "Floor not found in the selected unit.");
+  }
 
   const status = reqString(b.status, "Status");
   if (!MACHINE_STATUSES.includes(status)) throw new HttpError(400, "Invalid machine status.");
@@ -717,9 +728,9 @@ async function createMachine(req: Request, env: Env, user: SessionUser | null): 
      values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     machineCode,
     machineName,
-    machineTypeId,
-    unitId,
-    floorId,
+    machineTypeId ?? null,
+    unitId ?? null,
+    floorId ?? null,
     optString(b.model, 120) ?? null,
     optString(b.serial_number, 120) ?? null,
     optString(b.manufacturer, 160) ?? null,
@@ -759,9 +770,9 @@ async function updateMachine(req: Request, env: Env, user: SessionUser | null, c
      where id = ?`,
     machineCode,
     machineName,
-    machineTypeId,
-    unitId,
-    floorId,
+    machineTypeId ?? null,
+    unitId ?? null,
+    floorId ?? null,
     optString(b.model, 120) ?? null,
     optString(b.serial_number, 120) ?? null,
     optString(b.manufacturer, 160) ?? null,
@@ -1011,8 +1022,8 @@ async function stockIn(req: Request, env: Env, user: SessionUser | null): Promis
 
   const result = (await run(
     env.DB,
-    `insert into stock_transactions (part_id, transaction_type, quantity, transaction_date, source, supplier, reference_number, note, created_by)
-     values (?, 'IN', ?, ?, ?, ?, ?, ?, ?)`,
+    `insert into stock_transactions (part_id, transaction_type, quantity, transaction_date, source, supplier, reference_number, note, received_by, storage_location, created_by)
+     values (?, 'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     partId,
     quantity,
     transactionDate,
@@ -1020,6 +1031,8 @@ async function stockIn(req: Request, env: Env, user: SessionUser | null): Promis
     optString(b.supplier, 160) ?? null,
     optString(b.reference_number, 120) ?? null,
     optString(b.note, 2000) ?? null,
+    optString(b.received_by, 160) ?? null,
+    optString(b.storage_location, 160) ?? null,
     session.id
   )) as { meta?: { last_row_id?: number } };
 
@@ -1068,8 +1081,8 @@ async function stockOut(req: Request, env: Env, user: SessionUser | null): Promi
 
     const inserted = (await run(
       exec,
-      `insert into stock_transactions (part_id, transaction_type, quantity, transaction_date, destination, machine_id, purpose, reference_number, note, created_by)
-       values (?, 'OUT', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `insert into stock_transactions (part_id, transaction_type, quantity, transaction_date, destination, machine_id, purpose, reference_number, note, issued_by, work_order, created_by)
+       values (?, 'OUT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       partId,
       quantity,
       transactionDate,
@@ -1078,6 +1091,8 @@ async function stockOut(req: Request, env: Env, user: SessionUser | null): Promi
       optString(b.purpose, 200) ?? null,
       optString(b.reference_number, 120) ?? null,
       optString(b.note, 2000) ?? null,
+      optString(b.issued_by, 160) ?? null,
+      optString(b.work_order, 160) ?? null,
       session.id
     )) as { meta?: { last_row_id?: number } };
     return { txId: inserted.meta?.last_row_id, part };
@@ -1236,16 +1251,17 @@ async function createEmployee(req: Request, env: Env, user: SessionUser | null):
 
   const result = (await run(
     env.DB,
-    `insert into employees (employee_code, name, phone, designation, department, joining_date, current_salary, last_increment_date, status)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `insert into employees (employee_code, name, phone, city, designation, department, joining_date, offdays_taken, offdays_left, status)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     employeeCode,
     name,
     optString(b.phone, 40) ?? null,
+    optString(b.city, 120) ?? null,
     optString(b.designation, 120) ?? null,
     optString(b.department, 120) ?? null,
     optDate(b.joining_date, "Joining date") ?? null,
-    optNonNeg(b.current_salary, "Current salary", 0),
-    optDate(b.last_increment_date, "Last increment date") ?? null,
+    optNonNegInt(b.offdays_taken, "Off days taken", 0),
+    optNonNegInt(b.offdays_left, "Off days left", 0),
     status
   )) as { meta?: { last_row_id?: number } };
 
@@ -1274,17 +1290,18 @@ async function updateEmployee(req: Request, env: Env, user: SessionUser | null, 
 
   await run(
     env.DB,
-    `update employees set employee_code = ?, name = ?, phone = ?, designation = ?, department = ?,
-       joining_date = ?, current_salary = ?, last_increment_date = ?, status = ?, updated_at = datetime('now')
+    `update employees set employee_code = ?, name = ?, phone = ?, city = ?, designation = ?, department = ?,
+       joining_date = ?, offdays_taken = ?, offdays_left = ?, status = ?, updated_at = datetime('now')
      where id = ?`,
     employeeCode,
     name,
     optString(b.phone, 40) ?? null,
+    optString(b.city, 120) ?? null,
     optString(b.designation, 120) ?? null,
     optString(b.department, 120) ?? null,
     optDate(b.joining_date, "Joining date") ?? null,
-    optNonNeg(b.current_salary, "Current salary", 0),
-    optDate(b.last_increment_date, "Last increment date") ?? null,
+    optNonNegInt(b.offdays_taken, "Off days taken", 0),
+    optNonNegInt(b.offdays_left, "Off days left", 0),
     status,
     id
   );
@@ -1331,7 +1348,9 @@ const DEFAULT_WORKBOOK_COLUMNS: Record<WorkbookEntity, object[]> = {
     { key: "designation", label: "Designation", type: "text" },
     { key: "department", label: "Department", type: "text" },
     { key: "joining_date", label: "Joining date", type: "date" },
-    { key: "current_salary", label: "Salary", type: "number" },
+    { key: "city", label: "City", type: "text" },
+    { key: "offdays_taken", label: "Off days taken", type: "number" },
+    { key: "offdays_left", label: "Off days left", type: "number" },
   ],
   part: [
     { key: "category", label: "Category", type: "text" },
@@ -1906,6 +1925,23 @@ async function dashboard(env: Env, user: SessionUser | null): Promise<Response> 
      from v_part_balance where current_balance < minimum_stock
      order by current_balance asc limit 6`
   );
+  const partAvailability = await all(
+    env.DB,
+    `select id, part_code, part_name, unit_of_measure, current_balance, minimum_stock
+     from v_part_balance order by part_name asc limit 100`
+  );
+  const machineAvailability = await all(
+    env.DB,
+    `select m.id, m.machine_code, m.machine_name, m.status, m.model,
+            coalesce(mt.name, 'Unassigned') as machine_type_name,
+            coalesce(u.unit_name, 'Unassigned') as unit_name,
+            coalesce(f.floor_name, 'Unassigned') as floor_name
+     from machines m
+     left join machine_types mt on mt.id = m.machine_type_id
+     left join units u on u.id = m.unit_id
+     left join floors f on f.id = m.floor_id
+     order by m.machine_name asc limit 100`
+  );
 
   return json({
     counts: counts ?? { units: 0, floors: 0, machines: 0, machine_types: 0, parts: 0, stock_items: 0, low_stock: 0, out_of_stock: 0, employees: 0 },
@@ -1913,6 +1949,8 @@ async function dashboard(env: Env, user: SessionUser | null): Promise<Response> 
     status_summary: statusSummary,
     recent_transactions: recentTx,
     low_stock_parts: lowStock,
+    part_availability: partAvailability,
+    machine_availability: machineAvailability,
   });
 }
 
@@ -1984,7 +2022,7 @@ async function reports(req: Request, env: Env, user: SessionUser | null): Promis
         rows: await all(
           env.DB,
           `select t.id, t.transaction_date, t.quantity,
-                  ${isIn ? "t.source, t.supplier" : "t.destination, t.purpose"},
+                  ${isIn ? "t.source, t.supplier, t.received_by, t.storage_location" : "t.destination, t.purpose, t.issued_by, t.work_order"},
                   t.reference_number, t.note, t.created_at,
                   p.part_code, p.part_name, p.unit_of_measure, u.name as created_by_name,
                   ${isIn ? "null as machine_code" : "m.machine_code"}

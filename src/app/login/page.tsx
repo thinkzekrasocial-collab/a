@@ -97,7 +97,7 @@ export default function LoginPage() {
 
         </div>
         <p className="mt-6 text-center text-xs text-[#aaa8a1]">
-          © {new Date().getFullYear()} Abdullah maintenance
+          © {new Date().getFullYear()} AB Maintenance BD
         </p>
       </div>
     </div>

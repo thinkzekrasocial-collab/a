@@ -24,6 +24,8 @@ interface StockInBody {
   transaction_date?: unknown;
   source?: unknown;
   supplier?: unknown;
+  received_by?: unknown;
+  storage_location?: unknown;
   reference_number?: unknown;
   note?: unknown;
 }
@@ -51,6 +53,8 @@ export async function POST(request: NextRequest) {
         transactionDate,
         source: optionalString(body.source),
         supplier: optionalString(body.supplier),
+        receivedBy: optionalString(body.received_by, 160),
+        storageLocation: optionalString(body.storage_location, 160),
         referenceNumber: optionalString(body.reference_number),
         note: optionalString(body.note, 2000),
         createdBy: session.id,

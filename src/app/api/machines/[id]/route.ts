@@ -35,20 +35,25 @@ interface MachineBody {
 type Ctx = { params: Promise<{ id: string }> };
 
 async function validateRelations(body: MachineBody) {
-  const machineTypeId = requireInt(body.machine_type_id, "Machine type");
-  const unitId = requireInt(body.unit_id, "Unit");
-  const floorId = requireInt(body.floor_id, "Floor");
+  const machineTypeId = body.machine_type_id === undefined || body.machine_type_id === "" ? null : requireInt(body.machine_type_id, "Machine type");
+  const unitId = body.unit_id === undefined || body.unit_id === "" ? null : requireInt(body.unit_id, "Unit");
+  const floorId = body.floor_id === undefined || body.floor_id === "" ? null : requireInt(body.floor_id, "Floor");
 
-  const machineType = await qOne(sql`select id from machine_types where id = ${machineTypeId}`);
-  if (!machineType) throw new ApiError(404, "Machine type not found.");
+  if (machineTypeId !== null) {
+    const machineType = await qOne(sql`select id from machine_types where id = ${machineTypeId}`);
+    if (!machineType) throw new ApiError(404, "Machine type not found.");
+  }
 
-  const unit = await qOne(sql`select id from units where id = ${unitId}`);
-  if (!unit) throw new ApiError(404, "Unit not found.");
+  if (unitId !== null) {
+    const unit = await qOne(sql`select id from units where id = ${unitId}`);
+    if (!unit) throw new ApiError(404, "Unit not found.");
+  }
 
-  const floor = await qOne(
-    sql`select id from floors where id = ${floorId} and unit_id = ${unitId}`
-  );
-  if (!floor) throw new ApiError(404, "Floor not found in the selected unit.");
+  if (floorId !== null) {
+    if (unitId === null) throw new ApiError(400, "A unit is required when selecting a floor.");
+    const floor = await qOne(sql`select id from floors where id = ${floorId} and unit_id = ${unitId}`);
+    if (!floor) throw new ApiError(404, "Floor not found in the selected unit.");
+  }
 
   const status = requireString(body.status, "Status");
   if (!isMachineStatus(status)) throw new ApiError(400, "Invalid machine status.");

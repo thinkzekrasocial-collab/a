@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { api, ApiClientError, fmtDate, fmtMoney, queryString, useApi } from "@/lib/api";
+import { api, ApiClientError, fmtDate, queryString, useApi } from "@/lib/api";
 import {
   Badge,
   Button,
@@ -26,11 +26,12 @@ interface Employee {
   employee_code: string;
   name: string;
   phone: string | null;
+  city: string | null;
   designation: string | null;
   department: string | null;
   joining_date: string | null;
-  current_salary: number;
-  last_increment_date: string | null;
+  offdays_taken: number;
+  offdays_left: number;
   status: string;
 }
 
@@ -38,11 +39,12 @@ const emptyForm = {
   employee_code: "",
   name: "",
   phone: "",
+  city: "",
   designation: "",
   department: "",
   joining_date: "",
-  current_salary: "",
-  last_increment_date: "",
+  offdays_taken: "0",
+  offdays_left: "0",
   status: "active",
 };
 
@@ -89,11 +91,12 @@ export default function EmployeesPage() {
       employee_code: e.employee_code,
       name: e.name,
       phone: e.phone ?? "",
+      city: e.city ?? "",
       designation: e.designation ?? "",
       department: e.department ?? "",
       joining_date: e.joining_date ?? "",
-      current_salary: String(e.current_salary),
-      last_increment_date: e.last_increment_date ?? "",
+      offdays_taken: String(e.offdays_taken ?? 0),
+      offdays_left: String(e.offdays_left ?? 0),
       status: e.status,
     });
     setModalOpen(true);
@@ -138,7 +141,7 @@ export default function EmployeesPage() {
     <div>
       <PageHeader
         title="Employees"
-        subtitle="Employee records with salary and department details."
+        subtitle="Employee contact, department and leave information."
         actions={canCreate ? <Button onClick={openCreate}>+ Add Employee</Button> : undefined}
       />
 
@@ -201,7 +204,8 @@ export default function EmployeesPage() {
                 "Designation",
                 "Department",
                 "Joined",
-                "Salary",
+                "City",
+                "Off days",
                 "Status",
                 "Actions",
               ]}
@@ -216,7 +220,10 @@ export default function EmployeesPage() {
                   <Td>{e.designation ?? "—"}</Td>
                   <Td>{e.department ?? "—"}</Td>
                   <Td>{fmtDate(e.joining_date)}</Td>
-                  <Td className="font-semibold">{fmtMoney(e.current_salary)}</Td>
+                  <Td>{e.city ?? "—"}</Td>
+                  <Td>
+                    {e.offdays_taken ?? 0} taken · {e.offdays_left ?? 0} left
+                  </Td>
                   <Td>
                     <Badge tone={e.status === "active" ? "green" : "slate"}>
                       {e.status === "active" ? "Active" : "Inactive"}
@@ -289,6 +296,13 @@ export default function EmployeesPage() {
               placeholder="01XXX-XXXXXX"
             />
           </Field>
+          <Field label="City">
+            <Input
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              placeholder="e.g. Dhaka"
+            />
+          </Field>
           <Field label="Designation">
             <Input
               value={form.designation}
@@ -316,21 +330,24 @@ export default function EmployeesPage() {
               onChange={(e) => setForm({ ...form, joining_date: e.target.value })}
             />
           </Field>
-          <Field label="Current salary">
+          <Field label="Off days taken">
             <Input
               type="number"
               min="0"
-              step="0.01"
-              value={form.current_salary}
-              onChange={(e) => setForm({ ...form, current_salary: e.target.value })}
+              step="1"
+              value={form.offdays_taken}
+              onChange={(e) => setForm({ ...form, offdays_taken: e.target.value })}
               placeholder="0"
             />
           </Field>
-          <Field label="Last increment date">
+          <Field label="Off days left">
             <Input
-              type="date"
-              value={form.last_increment_date}
-              onChange={(e) => setForm({ ...form, last_increment_date: e.target.value })}
+              type="number"
+              min="0"
+              step="1"
+              value={form.offdays_left}
+              onChange={(e) => setForm({ ...form, offdays_left: e.target.value })}
+              placeholder="0"
             />
           </Field>
           <Field label="Status">

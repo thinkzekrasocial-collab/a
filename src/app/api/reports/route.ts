@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
         return Response.json({
           rows: await q(sql`
             select t.id, t.transaction_date, t.quantity, t.source, t.supplier,
+                   t.received_by, t.storage_location,
                    t.reference_number, t.note, t.created_at,
                    p.part_code, p.part_name, p.unit_of_measure, u.name as created_by_name
             from stock_transactions t
@@ -109,6 +110,7 @@ export async function GET(request: NextRequest) {
         return Response.json({
           rows: await q(sql`
             select t.id, t.transaction_date, t.quantity, t.destination, t.purpose,
+                   t.issued_by, t.work_order,
                    t.reference_number, t.note, t.created_at,
                    p.part_code, p.part_name, p.unit_of_measure, u.name as created_by_name,
                    m.machine_code, m.machine_name

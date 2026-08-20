@@ -38,19 +38,19 @@ interface Machine {
   id: number;
   machine_code: string;
   machine_name: string;
-  machine_type_id: number;
-  unit_id: number;
-  floor_id: number;
+  machine_type_id: number | null;
+  unit_id: number | null;
+  floor_id: number | null;
   model: string | null;
   serial_number: string | null;
   manufacturer: string | null;
   installation_date: string | null;
   status: string;
   description: string | null;
-  machine_type_name: string;
-  unit_name: string;
-  floor_name: string;
-  floor_number: number;
+  machine_type_name: string | null;
+  unit_name: string | null;
+  floor_name: string | null;
+  floor_number: number | null;
 }
 
 const emptyForm = {
@@ -119,9 +119,9 @@ export default function MachinesPage() {
     setForm({
       machine_code: m.machine_code,
       machine_name: m.machine_name,
-      machine_type_id: String(m.machine_type_id),
-      unit_id: String(m.unit_id),
-      floor_id: String(m.floor_id),
+      machine_type_id: m.machine_type_id ? String(m.machine_type_id) : "",
+      unit_id: m.unit_id ? String(m.unit_id) : "",
+      floor_id: m.floor_id ? String(m.floor_id) : "",
       model: m.model ?? "",
       serial_number: m.serial_number ?? "",
       manufacturer: m.manufacturer ?? "",
@@ -131,13 +131,6 @@ export default function MachinesPage() {
     });
     setModalOpen(true);
   };
-
-  const modalFloors = useMemo(() => {
-    const unitIdOfForm = form.unit_id ? Number(form.unit_id) : null;
-    return (floorsData?.items ?? []).filter(
-      (f) => !unitIdOfForm || Number(f.unit_id) === unitIdOfForm
-    );
-  }, [floorsData, form.unit_id]);
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -317,10 +310,10 @@ export default function MachinesPage() {
                     <Badge tone="cyan">{m.machine_code}</Badge>
                   </Td>
                   <Td className="font-medium text-slate-800">{m.machine_name}</Td>
-                  <Td>{m.machine_type_name}</Td>
+                  <Td>{m.machine_type_name ?? "Unassigned"}</Td>
                   <Td>
-                    {m.unit_name}
-                    <span className="text-xs text-slate-400"> · {m.floor_name}</span>
+                    {m.unit_name ?? "Unassigned"}
+                    <span className="text-xs text-slate-400"> · {m.floor_name ?? "Unassigned"}</span>
                   </Td>
                   <Td>{m.model ?? "—"}</Td>
                   <Td className="text-xs text-slate-500">{m.serial_number ?? "—"}</Td>
@@ -391,20 +384,6 @@ export default function MachinesPage() {
               required
             />
           </Field>
-          <Field label="Machine type" required>
-            <Select
-              value={form.machine_type_id}
-              onChange={(e) => setForm({ ...form, machine_type_id: e.target.value })}
-              required
-            >
-              <option value="">Select type…</option>
-              {(typesData?.items ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
           <Field label="Status" required>
             <Select
               value={form.status}
@@ -413,35 +392,6 @@ export default function MachinesPage() {
               {MACHINE_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Unit" required>
-            <Select
-              value={form.unit_id}
-              onChange={(e) => setForm({ ...form, unit_id: e.target.value, floor_id: "" })}
-              required
-            >
-              <option value="">Select unit…</option>
-              {(unitsData?.items ?? []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.unit_name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Floor" required>
-            <Select
-              value={form.floor_id}
-              onChange={(e) => setForm({ ...form, floor_id: e.target.value })}
-              required
-              disabled={!form.unit_id}
-            >
-              <option value="">Select floor…</option>
-              {modalFloors.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.floor_name}
                 </option>
               ))}
             </Select>

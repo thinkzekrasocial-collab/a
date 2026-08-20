@@ -5,7 +5,6 @@ import {
   ApiError,
   errResponse,
   optionalDate,
-  optionalNonNegativeNumber,
   optionalString,
   readBody,
   requirePerm,
@@ -22,11 +21,12 @@ interface EmployeeBody {
   employee_code?: unknown;
   name?: unknown;
   phone?: unknown;
+  city?: unknown;
   designation?: unknown;
   department?: unknown;
   joining_date?: unknown;
-  current_salary?: unknown;
-  last_increment_date?: unknown;
+  offdays_taken?: unknown;
+  offdays_left?: unknown;
   status?: unknown;
 }
 
@@ -54,11 +54,12 @@ export async function PUT(request: NextRequest, context: Ctx) {
           employeeCode,
           name,
           phone: optionalString(body.phone, 40),
+          city: optionalString(body.city, 120),
           designation: optionalString(body.designation, 120),
           department: optionalString(body.department, 120),
           joiningDate: optionalDate(body.joining_date, "Joining date"),
-          currentSalary: String(optionalNonNegativeNumber(body.current_salary, "Current salary", 0)),
-          lastIncrementDate: optionalDate(body.last_increment_date, "Last increment date"),
+          offdaysTaken: Math.max(0, Math.trunc(Number(body.offdays_taken ?? 0) || 0)),
+          offdaysLeft: Math.max(0, Math.trunc(Number(body.offdays_left ?? 0) || 0)),
           status,
           updatedAt: new Date(),
         })

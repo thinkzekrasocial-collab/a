@@ -25,9 +25,9 @@ interface WorkbookMenu {
 
 export function BrandLogo({ compact }: { compact?: boolean }) {
   return (
-    <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="Abdullah maintenance home">
+    <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="AB Maintenance BD home">
       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#242424] text-[11px] font-semibold text-white shadow-sm">AM</div>
-      {!compact && <div className="font-serif text-[17px] tracking-[-0.03em] text-[#202020]">Abdullah maintenance</div>}
+      {!compact && <div className="font-serif text-[17px] tracking-[-0.03em] text-[#202020]">AB Maintenance BD</div>}
     </Link>
   );
 }
@@ -80,7 +80,7 @@ function ShellInner({ session, children }: { session: SessionInfo; children: Rea
       {drawerOpen && <div className="fixed inset-0 z-40 lg:hidden"><div className="absolute inset-0 bg-black/20" onClick={() => setDrawerOpen(false)} /><aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-[#faf9f5] p-5 shadow-xl"><div className="mb-5 flex items-center justify-between"><BrandLogo /><button onClick={() => setDrawerOpen(false)} aria-label="Close menu" className="text-2xl text-[#77756f]">×</button></div><MobileNav session={session} menus={menus} pathname={pathname} onNavigate={() => setDrawerOpen(false)} /><button onClick={logout} disabled={loggingOut} className="mt-4 border-t border-[#e7e5e0] pt-4 text-left text-sm text-[#77756f]">{loggingOut ? "Signing out…" : "Sign out"}</button></aside></div>}
 
       <main className="mx-auto min-h-[calc(100vh-112px)] max-w-[1400px] px-6 py-7 lg:px-8">{children}</main>
-      <footer className="mx-auto max-w-[1400px] px-6 pb-5 text-[11px] text-[#aaa8a1] lg:px-8">Abdullah maintenance · Inventory workspace</footer>
+      <footer className="mx-auto max-w-[1400px] px-6 pb-5 text-[11px] text-[#aaa8a1] lg:px-8">AB Maintenance BD · Inventory workspace</footer>
     </div>
   );
 }

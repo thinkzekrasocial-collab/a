@@ -16,7 +16,9 @@ const defaults: Record<EntityType, MenuColumn[]> = {
     { key: "designation", label: "Designation", type: "text" },
     { key: "department", label: "Department", type: "text" },
     { key: "joining_date", label: "Joining date", type: "date" },
-    { key: "current_salary", label: "Salary", type: "number" },
+    { key: "city", label: "City", type: "text" },
+    { key: "offdays_taken", label: "Off days taken", type: "number" },
+    { key: "offdays_left", label: "Off days left", type: "number" },
   ],
   part: [
     { key: "category", label: "Category", type: "text" },

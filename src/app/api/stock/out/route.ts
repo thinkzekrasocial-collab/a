@@ -26,6 +26,8 @@ interface StockOutBody {
   destination?: unknown;
   machine_id?: unknown;
   purpose?: unknown;
+  issued_by?: unknown;
+  work_order?: unknown;
   reference_number?: unknown;
   note?: unknown;
 }
@@ -91,6 +93,8 @@ export async function POST(request: NextRequest) {
           destination: optionalString(body.destination),
           machineId: machineId ?? null,
           purpose: optionalString(body.purpose),
+          issuedBy: optionalString(body.issued_by, 160),
+          workOrder: optionalString(body.work_order, 160),
           referenceNumber: optionalString(body.reference_number),
           note: optionalString(body.note, 2000),
           createdBy: session.id,
@@ -113,5 +117,4 @@ export async function POST(request: NextRequest) {
     return errResponse(error);
   }
 }
-
 

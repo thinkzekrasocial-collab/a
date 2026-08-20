@@ -56,6 +56,8 @@ export default function StockOutPage() {
     destination: "",
     machine_id: "",
     purpose: "",
+    issued_by: "",
+    work_order: "",
     reference_number: "",
     note: "",
   });
@@ -74,6 +76,8 @@ export default function StockOutPage() {
       quantity: number;
       destination: string | null;
       purpose: string | null;
+      issued_by: string | null;
+      work_order: string | null;
       reference_number: string | null;
       part_code: string;
       part_name: string;
@@ -109,6 +113,8 @@ export default function StockOutPage() {
         destination: "",
         machine_id: "",
         purpose: "",
+        issued_by: "",
+        work_order: "",
         reference_number: "",
         note: "",
       });
@@ -208,6 +214,20 @@ export default function StockOutPage() {
                 placeholder="e.g. Production"
               />
             </Field>
+            <Field label="Issued by">
+              <Input
+                value={form.issued_by}
+                onChange={(e) => setForm({ ...form, issued_by: e.target.value })}
+                placeholder="Person who issued the stock"
+              />
+            </Field>
+            <Field label="Work order">
+              <Input
+                value={form.work_order}
+                onChange={(e) => setForm({ ...form, work_order: e.target.value })}
+                placeholder="e.g. WO-2026-004"
+              />
+            </Field>
             <Field label="Reference number">
               <Input
                 value={form.reference_number}
@@ -239,7 +259,7 @@ export default function StockOutPage() {
           ) : recentData.rows.length === 0 ? (
             <EmptyState icon="📤" title="No stock OUT yet" message="Issues will appear here." />
           ) : (
-            <Table headers={["Date", "Part", "Qty", "Destination", "Machine", "Ref", "By"]}>
+            <Table headers={["Date", "Part", "Qty", "Destination", "Machine", "Issued by", "Work order", "Ref", "By"]}>
               {recentData.rows.slice(0, 12).map((t) => (
                 <tr key={t.id}>
                   <Td>{fmtDate(t.transaction_date)}</Td>
@@ -249,6 +269,8 @@ export default function StockOutPage() {
                   </Td>
                   <Td>{t.destination ?? "—"}</Td>
                   <Td>{t.machine_code ?? "—"}</Td>
+                  <Td>{t.issued_by ?? "—"}</Td>
+                  <Td>{t.work_order ?? "—"}</Td>
                   <Td>
                     {t.reference_number ? <Badge tone="slate">{t.reference_number}</Badge> : "—"}
                   </Td>
