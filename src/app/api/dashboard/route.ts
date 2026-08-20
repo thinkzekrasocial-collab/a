@@ -114,11 +114,12 @@ export async function GET(request: NextRequest) {
           from parts p
         ) pb order by pb.part_name asc limit 100
       `),
-      q<{ id: number; machine_code: string; machine_name: string; status: string; model: string | null; machine_type_name: string; unit_name: string; floor_name: string }>(sql`
+      q<{ id: number; machine_code: string; machine_name: string; status: string; availability_status: string; model: string | null; machine_type_name: string; unit_name: string; floor_name: string }>(sql`
         select m.id, m.machine_code, m.machine_name, m.status, m.model,
           coalesce(mt.name, 'Unassigned') as machine_type_name,
           coalesce(u.unit_name, 'Unassigned') as unit_name,
-          coalesce(f.floor_name, 'Unassigned') as floor_name
+          coalesce(f.floor_name, 'Unassigned') as floor_name,
+          case when coalesce((select mt2.transaction_type from machine_transactions mt2 where mt2.machine_id = m.id order by mt2.transaction_date desc, mt2.id desc limit 1), 'IN') = 'OUT' then 'Out' else 'Available' end as availability_status
         from machines m
         left join machine_types mt on mt.id = m.machine_type_id
         left join units u on u.id = m.unit_id

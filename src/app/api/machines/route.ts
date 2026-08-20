@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const qParam = url.searchParams.get("q")?.trim() ?? "";
     const status = url.searchParams.get("status") ?? "";
+    const availability = url.searchParams.get("availability") ?? "";
     const unitId = optionalInt(url.searchParams.get("unit_id"), "Unit ID");
     const floorId = optionalInt(url.searchParams.get("floor_id"), "Floor ID");
     const typeId = optionalInt(url.searchParams.get("type_id"), "Machine type ID");
@@ -49,6 +50,8 @@ export async function GET(request: NextRequest) {
     const filters = sql`
       ${qParam ? sql`and (m.machine_code ilike ${`%${qParam}%`} or m.machine_name ilike ${`%${qParam}%`} or coalesce(m.serial_number,'') ilike ${`%${qParam}%`})` : sql``}
       ${status ? sql`and m.status = ${status}` : sql``}
+      ${availability === "available" ? sql`and coalesce((select mt2.transaction_type from machine_transactions mt2 where mt2.machine_id = m.id order by mt2.transaction_date desc, mt2.id desc limit 1), 'IN') = 'IN'` : sql``}
+      ${availability === "out" ? sql`and coalesce((select mt2.transaction_type from machine_transactions mt2 where mt2.machine_id = m.id order by mt2.transaction_date desc, mt2.id desc limit 1), 'IN') = 'OUT'` : sql``}
       ${unitId ? sql`and m.unit_id = ${unitId}` : sql``}
       ${floorId ? sql`and m.floor_id = ${floorId}` : sql``}
       ${typeId ? sql`and m.machine_type_id = ${typeId}` : sql``}
@@ -67,13 +70,15 @@ export async function GET(request: NextRequest) {
         manufacturer: string | null;
         installation_date: string | null;
         status: string;
+        availability_status: "Available" | "Out";
         description: string | null;
         machine_type_name: string;
         unit_name: string;
         floor_name: string;
         floor_number: number;
       }>(sql`
-        select m.*, mt.name as machine_type_name, u.unit_name, f.floor_name, f.floor_number
+        select m.*, mt.name as machine_type_name, u.unit_name, f.floor_name, f.floor_number,
+          case when coalesce((select mt2.transaction_type from machine_transactions mt2 where mt2.machine_id = m.id order by mt2.transaction_date desc, mt2.id desc limit 1), 'IN') = 'OUT' then 'Out' else 'Available' end as availability_status
         from machines m
         left join machine_types mt on mt.id = m.machine_type_id
         left join units u on u.id = m.unit_id

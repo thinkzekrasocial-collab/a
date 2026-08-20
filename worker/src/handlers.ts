@@ -639,6 +639,7 @@ async function listMachines(req: Request, env: Env, user: SessionUser | null): P
   const query = new URL(req.url).searchParams;
   const q = (query.get("q") ?? "").trim();
   const status = query.get("status") ?? "";
+  const availability = query.get("availability") ?? "";
   const unitId = optInt(query.get("unit_id"), "Unit ID");
   const floorId = optInt(query.get("floor_id"), "Floor ID");
   const typeId = optInt(query.get("type_id"), "Machine type ID");
@@ -666,11 +667,17 @@ async function listMachines(req: Request, env: Env, user: SessionUser | null): P
     conditions.push("m.machine_type_id = ?");
     params.push(typeId);
   }
+  if (availability === "available") {
+    conditions.push("coalesce((select mt.transaction_type from machine_transactions mt where mt.machine_id = m.id order by mt.transaction_date desc, mt.id desc limit 1), 'IN') = 'IN'");
+  } else if (availability === "out") {
+    conditions.push("coalesce((select mt.transaction_type from machine_transactions mt where mt.machine_id = m.id order by mt.transaction_date desc, mt.id desc limit 1), 'IN') = 'OUT'");
+  }
   const where = conditions.length ? `where ${conditions.join(" and ")}` : "";
 
   const rows = await all(
     env.DB,
-    `select m.*, mt.name as machine_type_name, u.unit_name, f.floor_name, f.floor_number
+    `select m.*, mt.name as machine_type_name, u.unit_name, f.floor_name, f.floor_number,
+            case when coalesce((select mt2.transaction_type from machine_transactions mt2 where mt2.machine_id = m.id order by mt2.transaction_date desc, mt2.id desc limit 1), 'IN') = 'OUT' then 'Out' else 'Available' end as availability_status
      from machines m
      left join machine_types mt on mt.id = m.machine_type_id
      left join units u on u.id = m.unit_id
@@ -810,6 +817,133 @@ async function deleteMachine(req: Request, env: Env, user: SessionUser | null, c
     description: `Machine "${row.machine_name}" (${row.machine_code}) deleted.`,
   });
   return json({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
+// Machine inventory IN / OUT — machines are individual assets, not quantities.
+// ---------------------------------------------------------------------------
+
+async function machineStockIn(req: Request, env: Env, user: SessionUser | null): Promise<Response> {
+  const session = requirePerm(user, "machine.create");
+  const b = await readBody<Record<string, unknown>>(req);
+  const machineCode = reqString(b.machine_code, "Machine code", { max: 40 });
+  const machineName = reqString(b.machine_name, "Machine name", { max: 120 });
+  const transactionDate = reqDate(b.transaction_date, "Date");
+  const { machineTypeId, unitId, floorId, status } = await validateMachineRelations(env, b);
+  const dup = await one(env.DB, `select 1 as n from machines where machine_code = ?`, machineCode);
+  if (dup) throw new HttpError(409, "A machine with this code already exists.");
+
+  const result = await tx(env.DB, async (exec) => {
+    const inserted = (await run(
+      exec,
+      `insert into machines (machine_code, machine_name, machine_type_id, unit_id, floor_id, model, serial_number, manufacturer, installation_date, status, description)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      machineCode,
+      machineName,
+      machineTypeId ?? null,
+      unitId ?? null,
+      floorId ?? null,
+      optString(b.model, 120) ?? null,
+      optString(b.serial_number, 120) ?? null,
+      optString(b.manufacturer, 160) ?? null,
+      optDate(b.installation_date, "Installation date") ?? null,
+      status,
+      optString(b.description, 2000) ?? null
+    )) as { meta?: { last_row_id?: number } };
+    const machineId = inserted.meta?.last_row_id;
+    if (!machineId) throw new HttpError(500, "Machine could not be created.");
+    await run(
+      exec,
+      `insert into machine_transactions (machine_id, transaction_type, transaction_date, source, reference_number, note, created_by)
+       values (?, 'IN', ?, ?, ?, ?, ?)`,
+      machineId,
+      transactionDate,
+      optString(b.source, 160) ?? null,
+      optString(b.reference_number, 120) ?? null,
+      optString(b.note, 2000) ?? null,
+      session.id
+    );
+    return machineId;
+  });
+
+  await audit(env, {
+    userId: session.id,
+    action: "Machine IN",
+    module: "Machine Inventory",
+    recordId: result,
+    description: `Machine IN: "${machineName}" (${machineCode}) received.`,
+    metadata: { machineId: result, reference: b.reference_number ?? null },
+  });
+  return json({ item: { id: result, machine_code: machineCode, machine_name: machineName, transaction_type: "IN" } }, 201);
+}
+
+async function machineStockOut(req: Request, env: Env, user: SessionUser | null): Promise<Response> {
+  const session = requirePerm(user, "stock.out");
+  const b = await readBody<Record<string, unknown>>(req);
+  const machineId = reqInt(b.machine_id, "Machine");
+  const transactionDate = reqDate(b.transaction_date, "Date");
+  const parts = Array.isArray(b.parts) ? b.parts : [];
+  const lineItems = parts.map((item, index) => {
+    if (!item || typeof item !== "object") throw new HttpError(400, `Part ${index + 1} is invalid.`);
+    const row = item as Record<string, unknown>;
+    return { partId: reqInt(row.part_id, `Part ${index + 1}`), quantity: reqPosNumber(row.quantity, `Quantity ${index + 1}`) };
+  });
+  const partIds = new Set<number>();
+  for (const line of lineItems) {
+    if (partIds.has(line.partId)) throw new HttpError(400, "Each included part may only be selected once.");
+    partIds.add(line.partId);
+  }
+
+  const result = await tx(env.DB, async (exec) => {
+    const machine = await one<{ machine_code: string; machine_name: string }>(exec, `select machine_code, machine_name from machines where id = ?`, machineId);
+    if (!machine) throw new HttpError(404, "Machine not found.");
+    const latest = await one<{ transaction_type: string }>(exec, `select transaction_type from machine_transactions where machine_id = ? order by transaction_date desc, id desc limit 1`, machineId);
+    if (latest?.transaction_type === "OUT") throw new HttpError(400, "This machine is already out of stock.");
+
+    const balances: { partId: number; quantity: number; unit: string; name: string; code: string }[] = [];
+    for (const line of lineItems) {
+      const part = await one<{ part_code: string; part_name: string; unit_of_measure: string; current_balance: number }>(exec, `select part_code, part_name, unit_of_measure, current_balance from v_part_balance where id = ?`, line.partId);
+      if (!part) throw new HttpError(404, `Part ${line.partId} not found.`);
+      if (line.quantity > part.current_balance) throw new HttpError(400, `Insufficient stock for ${part.part_name}. Available balance: ${part.current_balance} ${part.unit_of_measure}.`);
+      balances.push({ partId: line.partId, quantity: line.quantity, unit: part.unit_of_measure, name: part.part_name, code: part.part_code });
+    }
+
+    const inserted = (await run(
+      exec,
+      `insert into machine_transactions (machine_id, transaction_type, transaction_date, destination, customer, reason, sale_price, reference_number, note, created_by)
+       values (?, 'OUT', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      machineId,
+      transactionDate,
+      optString(b.destination, 160) ?? null,
+      optString(b.customer, 160) ?? null,
+      optString(b.reason, 120) ?? null,
+      b.sale_price === undefined || b.sale_price === "" ? null : optNonNeg(b.sale_price, "Sale price", 0),
+      optString(b.reference_number, 120) ?? null,
+      optString(b.note, 2000) ?? null,
+      session.id
+    )) as { meta?: { last_row_id?: number } };
+    for (const part of balances) {
+      await run(exec, `insert into stock_transactions (part_id, transaction_type, quantity, transaction_date, destination, machine_id, purpose, reference_number, note, issued_by, created_by) values (?, 'OUT', ?, ?, ?, ?, ?, ?, ?, ?, ?)`, part.partId, part.quantity, transactionDate, optString(b.destination, 160) ?? null, machineId, `Included with machine ${machine.machine_code}`, optString(b.reference_number, 120) ?? null, optString(b.note, 2000) ?? null, optString(b.customer, 160) ?? null, session.id);
+    }
+    await run(exec, `update machines set status = 'Inactive', updated_at = datetime('now') where id = ?`, machineId);
+    return { txId: inserted.meta?.last_row_id, machine, parts: balances };
+  });
+
+  await audit(env, {
+    userId: session.id,
+    action: "Machine OUT",
+    module: "Machine Inventory",
+    recordId: machineId,
+    description: `Machine OUT: "${result.machine.machine_name}" (${result.machine.machine_code}) issued or sold.`,
+    metadata: { machineId, parts: result.parts.map((part) => ({ partId: part.partId, quantity: part.quantity })) },
+  });
+  return json({ item: { id: result.txId, machine_id: machineId, transaction_type: "OUT", included_parts: result.parts.length } }, 201);
+}
+
+async function listMachineTransactions(req: Request, env: Env, user: SessionUser | null): Promise<Response> {
+  requirePerm(user, "machine.view");
+  const { limit } = paginate(new URL(req.url).searchParams);
+  return json({ items: await all(env.DB, `select mt.id, mt.machine_id, mt.transaction_type, mt.transaction_date, mt.source, mt.destination, mt.customer, mt.reason, mt.sale_price, mt.reference_number, mt.note, m.machine_code, m.machine_name, u.name as created_by_name from machine_transactions mt join machines m on m.id = mt.machine_id join users u on u.id = mt.created_by order by mt.transaction_date desc, mt.id desc limit ?`, limit) });
 }
 
 // ---------------------------------------------------------------------------
@@ -1935,7 +2069,8 @@ async function dashboard(env: Env, user: SessionUser | null): Promise<Response> 
     `select m.id, m.machine_code, m.machine_name, m.status, m.model,
             coalesce(mt.name, 'Unassigned') as machine_type_name,
             coalesce(u.unit_name, 'Unassigned') as unit_name,
-            coalesce(f.floor_name, 'Unassigned') as floor_name
+            coalesce(f.floor_name, 'Unassigned') as floor_name,
+            case when coalesce((select mt2.transaction_type from machine_transactions mt2 where mt2.machine_id = m.id order by mt2.transaction_date desc, mt2.id desc limit 1), 'IN') = 'OUT' then 'Out' else 'Available' end as availability_status
      from machines m
      left join machine_types mt on mt.id = m.machine_type_id
      left join units u on u.id = m.unit_id
@@ -2238,6 +2373,9 @@ export function registerRoutes(router: Router): Router {
   router.add("POST", "/api/machines", (req, env, _c, u) => createMachine(req, env, u).catch(errorResponse));
   router.add("PUT", "/api/machines/:id", (req, env, c, u) => updateMachine(req, env, u, c).catch(errorResponse));
   router.add("DELETE", "/api/machines/:id", (req, env, c, u) => deleteMachine(req, env, u, c).catch(errorResponse));
+  router.add("GET", "/api/machine-stock/transactions", (req, env, _c, u) => listMachineTransactions(req, env, u).catch(errorResponse));
+  router.add("POST", "/api/machine-stock/in", (req, env, _c, u) => machineStockIn(req, env, u).catch(errorResponse));
+  router.add("POST", "/api/machine-stock/out", (req, env, _c, u) => machineStockOut(req, env, u).catch(errorResponse));
 
   // Parts
   router.add("GET", "/api/parts", (req, env, _c, u) => listParts(req, env, u).catch(errorResponse));

@@ -238,6 +238,30 @@ export const stockTransactions = pgTable(
   ]
 );
 
+export const machineTransactions = pgTable(
+  "machine_transactions",
+  {
+    id: serial("id").primaryKey(),
+    machineId: integer("machine_id").notNull().references(() => machines.id),
+    transactionType: text("transaction_type").notNull(),
+    transactionDate: date("transaction_date").notNull(),
+    source: text("source"),
+    destination: text("destination"),
+    customer: text("customer"),
+    reason: text("reason"),
+    salePrice: numeric("sale_price", { precision: 14, scale: 2 }),
+    referenceNumber: text("reference_number"),
+    note: text("note"),
+    createdBy: integer("created_by").notNull().references(() => users.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("machine_tx_machine_id_idx").on(t.machineId),
+    index("machine_tx_date_idx").on(t.transactionDate),
+    index("machine_tx_type_idx").on(t.transactionType),
+  ]
+);
+
 // ---------------------------------------------------------------------------
 // Employees
 // ---------------------------------------------------------------------------

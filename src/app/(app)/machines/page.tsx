@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { api, ApiClientError, fmtDate, queryString, useApi } from "@/lib/api";
 import {
@@ -46,6 +47,7 @@ interface Machine {
   manufacturer: string | null;
   installation_date: string | null;
   status: string;
+  availability_status: "Available" | "Out";
   description: string | null;
   machine_type_name: string | null;
   unit_name: string | null;
@@ -75,6 +77,7 @@ export default function MachinesPage() {
 
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
+  const [availability, setAvailability] = useState("");
   const [unitId, setUnitId] = useState("");
   const [floorId, setFloorId] = useState("");
   const [typeId, setTypeId] = useState("");
@@ -87,8 +90,8 @@ export default function MachinesPage() {
 
   const path = useMemo(
     () =>
-      `/api/machines${queryString({ q, status, unit_id: unitId, floor_id: floorId, type_id: typeId, page, limit: 10 })}`,
-    [q, status, unitId, floorId, typeId, page]
+      `/api/machines${queryString({ q, status, availability, unit_id: unitId, floor_id: floorId, type_id: typeId, page, limit: 10 })}`,
+    [q, status, availability, unitId, floorId, typeId, page]
   );
   const { data, loading, error, reload } = useApi<{
     items: Machine[];
@@ -179,11 +182,17 @@ export default function MachinesPage() {
       <PageHeader
         title="Machines"
         subtitle="Search, filter and manage every machine in the factory."
-        actions={canCreate ? <Button onClick={openCreate}>+ Add Machine</Button> : undefined}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link href="/machines/stock-in" className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white">+ Machine IN</Link>
+            <Link href="/machines/stock-out" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700">Machine OUT / Sale</Link>
+            {canCreate && <Button onClick={openCreate}>+ Add Machine</Button>}
+          </div>
+        }
       />
 
       {/* Filters */}
-      <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
         <Field label="Search">
           <Input
             value={q}
@@ -208,6 +217,13 @@ export default function MachinesPage() {
                 {s}
               </option>
             ))}
+          </Select>
+        </Field>
+        <Field label="Availability">
+          <Select value={availability} onChange={(e) => { setAvailability(e.target.value); setPage(1); }}>
+            <option value="">All machines</option>
+            <option value="available">Available</option>
+            <option value="out">Out / Sold</option>
           </Select>
         </Field>
         <Field label="Unit">
@@ -301,6 +317,7 @@ export default function MachinesPage() {
                 "Serial",
                 "Installed",
                 "Status",
+                "Availability",
                 "Actions",
               ]}
             >
@@ -321,6 +338,7 @@ export default function MachinesPage() {
                   <Td>
                     <Badge tone={machineStatusTone(m.status)}>{m.status}</Badge>
                   </Td>
+                  <Td><Badge tone={m.availability_status === "Available" ? "green" : "red"}>{m.availability_status}</Badge></Td>
                   <Td>
                     <div className="flex gap-1.5">
                       {canEdit && (
