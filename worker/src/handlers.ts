@@ -1042,8 +1042,8 @@ async function stockOut(req: Request, env: Env, user: SessionUser | null): Promi
   const transactionDate = reqDate(b.transaction_date, "Date");
   const machineId = optInt(b.machine_id, "Machine");
 
-  // The whole check-and-insert runs inside one D1 session so concurrent
-  // requests can never push the ledger below zero.
+  // Keep the balance read and write on the same D1 session for consistent
+  // reads. D1 sessions do not make this callback an application transaction.
   const result = await tx(env.DB, async (exec) => {
     const part = await one<{
       id: number;

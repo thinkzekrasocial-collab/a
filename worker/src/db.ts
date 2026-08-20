@@ -50,18 +50,21 @@ export async function run(
 }
 
 /**
- * Run `fn` inside a D1 session (transaction) when supported.
- * Falls back to plain execution on older runtimes.
+ * Run `fn` against a D1 session when the runtime supports sessions.
+ *
+ * D1's `withSession()` returns a session object; it does not accept a
+ * callback. Passing the callback directly makes production part creation
+ * fail before the first INSERT with a generic 500 response.
  */
 export async function tx<T>(
   db: D1Database,
   fn: (exec: Executor) => Promise<T>
 ): Promise<T> {
   const sessionApi = db as unknown as {
-    withSession?: (cb: (session: ExecutorLike) => Promise<T>) => Promise<T>;
+    withSession?: (bookmark?: string) => ExecutorLike;
   };
   if (typeof sessionApi.withSession === "function") {
-    return sessionApi.withSession(fn);
+    return fn(sessionApi.withSession());
   }
   return fn(db);
 }
