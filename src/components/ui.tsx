@@ -21,13 +21,13 @@ type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "success";
 
 const buttonStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-teal-700 text-white hover:bg-teal-800 focus-visible:outline-teal-700 disabled:bg-teal-300",
+    "bg-[#242424] text-white hover:bg-[#000] focus-visible:outline-[#242424] disabled:bg-[#aaa8a1]",
   secondary:
-    "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus-visible:outline-slate-400 disabled:text-slate-400",
+    "bg-white text-[#4b4944] border border-[#dedcd6] hover:bg-[#f3f2ee] focus-visible:outline-[#aaa8a1] disabled:text-[#aaa8a1]",
   danger:
     "bg-rose-600 text-white hover:bg-rose-700 focus-visible:outline-rose-600 disabled:bg-rose-300",
   ghost:
-    "bg-transparent text-slate-600 hover:bg-slate-100 focus-visible:outline-slate-400 disabled:text-slate-300",
+    "bg-transparent text-[#6b6963] hover:bg-[#efeee9] focus-visible:outline-[#aaa8a1] disabled:text-[#aaa8a1]",
   success:
     "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:outline-emerald-600 disabled:bg-emerald-300",
 };

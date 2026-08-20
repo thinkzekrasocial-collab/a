@@ -51,12 +51,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-[#faf9f5] px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 flex justify-center">
           <BrandLogo />
         </div>
-        <div className="rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+        <div className="rounded-2xl border border-[#e3e1db] bg-white p-6 shadow-[0_8px_30px_rgba(38,36,30,0.06)] sm:p-8">
           <h1 className="text-xl font-bold text-slate-900">Sign in</h1>
           <p className="mt-1 text-sm text-slate-500">
             Machine &amp; Parts Inventory Management System
@@ -96,8 +96,8 @@ export default function LoginPage() {
           )}
 
         </div>
-        <p className="mt-6 text-center text-xs text-slate-500">
-          © {new Date().getFullYear()} AB Maintenance BD
+        <p className="mt-6 text-center text-xs text-[#aaa8a1]">
+          © {new Date().getFullYear()} Abdullah maintenance
         </p>
       </div>
     </div>
