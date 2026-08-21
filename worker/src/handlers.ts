@@ -808,7 +808,14 @@ async function deleteMachine(req: Request, env: Env, user: SessionUser | null, c
   );
   if (!row) throw new HttpError(404, "Machine not found.");
 
-  await run(env.DB, `delete from machines where id = ?`, id);
+  await tx(env.DB, async (exec) => {
+    // A machine can be referenced by both part movements and machine
+    // movements. Clean those histories before removing the asset.
+    await run(exec, `delete from stock_transactions where machine_id = ?`, id);
+    await run(exec, `delete from machine_transactions where machine_id = ?`, id);
+    await run(exec, `delete from audit_logs where record_id = ? and module in ('Machine', 'Machine Inventory')`, String(id));
+    await run(exec, `delete from machines where id = ?`, id);
+  });
   await audit(env, {
     userId: session.id,
     action: "Delete",
@@ -1116,16 +1123,14 @@ async function deletePart(req: Request, env: Env, user: SessionUser | null, ctx:
   );
   if (!row) throw new HttpError(404, "Part not found.");
 
-  const count = await one<{ n: number }>(
-    env.DB,
-    `select count(*) as n from stock_transactions where part_id = ?`,
-    id
-  );
-  if ((count?.n ?? 0) > 0) {
-    throw new HttpError(409, "Part cannot be deleted because stock transactions exist for it.");
-  }
-
-  await run(env.DB, `delete from parts where id = ?`, id);
+  await tx(env.DB, async (exec) => {
+    // Remove all dependent history first. Workbook rows are scoped to part
+    // menus so an employee with the same numeric ID is never touched.
+    await run(exec, `delete from stock_transactions where part_id = ?`, id);
+    await run(exec, `delete from menu_sheet_data where entity_id = ? and menu_id in (select id from custom_menus where entity_type = 'part')`, id);
+    await run(exec, `delete from audit_logs where record_id = ? and module in ('Part', 'Inventory')`, String(id));
+    await run(exec, `delete from parts where id = ?`, id);
+  });
   await audit(env, {
     userId: session.id,
     action: "Delete",

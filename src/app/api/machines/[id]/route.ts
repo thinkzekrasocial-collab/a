@@ -126,6 +126,9 @@ export async function DELETE(request: NextRequest, context: Ctx) {
     );
     if (!existing) throw new ApiError(404, "Machine not found.");
 
+    await db.execute(sql`delete from stock_transactions where machine_id = ${id}`);
+    await db.execute(sql`delete from machine_transactions where machine_id = ${id}`);
+    await db.execute(sql`delete from audit_logs where record_id = ${String(id)} and module in ('Machine', 'Machine Inventory')`);
     await db.delete(machines).where(sql`${machines.id} = ${id}`);
     await logAudit({
       userId: session.id,

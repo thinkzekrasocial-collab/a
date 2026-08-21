@@ -110,16 +110,9 @@ export async function DELETE(request: NextRequest, context: Ctx) {
     );
     if (!existing) throw new ApiError(404, "Part not found.");
 
-    const count = await qOne<{ total: number }>(
-      sql`select count(*)::int as total from stock_transactions where part_id = ${id}`
-    );
-    if (count && count.total > 0) {
-      throw new ApiError(
-        409,
-        "Part cannot be deleted because stock transactions exist for it."
-      );
-    }
-
+    await db.execute(sql`delete from stock_transactions where part_id = ${id}`);
+    await db.execute(sql`delete from menu_sheet_data where entity_id = ${id} and menu_id in (select id from custom_menus where entity_type = 'part')`);
+    await db.execute(sql`delete from audit_logs where record_id = ${String(id)} and module in ('Part', 'Inventory')`);
     await db.delete(parts).where(sql`${parts.id} = ${id}`);
     await logAudit({
       userId: session.id,
