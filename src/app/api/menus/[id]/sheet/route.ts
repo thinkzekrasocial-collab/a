@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, context: Ctx) {
     const activeId = selectedId ?? entities[0]?.id;
     const entity = activeId
       ? (menu.entity_type === "employee"
-        ? await qOne<Record<string, unknown>>(sql`select id, employee_code, name, phone, designation, department, joining_date, current_salary, last_increment_date, status from employees where id = ${activeId}`)
+        ? await qOne<Record<string, unknown>>(sql`select id, employee_code, name, phone, nid_number, city, designation, department, joining_date, offdays_taken, offdays_left, status from employees where id = ${activeId}`)
         : await qOne<Record<string, unknown>>(sql`select p.id, p.part_code, p.part_name as name, p.unit_of_measure, p.category, p.supplier, p.minimum_stock, (p.opening_stock + coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'IN'), 0) - coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'OUT'), 0))::float8 as current_balance from parts p where p.id = ${activeId}`))
       : null;
     if (selectedId && !entity) throw new ApiError(404, "Record not found.");

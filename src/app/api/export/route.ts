@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       }
       case "employees": {
         rows = await q(sql`
-          select employee_code, name, phone, designation, department, joining_date,
+          select employee_code, name, phone, nid_number, city, designation, department, joining_date,
                  current_salary, last_increment_date, status
           from employees
           order by name asc

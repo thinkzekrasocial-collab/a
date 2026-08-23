@@ -21,6 +21,7 @@ interface EmployeeBody {
   employee_code?: unknown;
   name?: unknown;
   phone?: unknown;
+  nid_number?: unknown;
   city?: unknown;
   designation?: unknown;
   department?: unknown;
@@ -54,6 +55,7 @@ export async function PUT(request: NextRequest, context: Ctx) {
           employeeCode,
           name,
           phone: optionalString(body.phone, 40),
+          nidNumber: optionalString(body.nid_number, 80),
           city: optionalString(body.city, 120),
           designation: optionalString(body.designation, 120),
           department: optionalString(body.department, 120),

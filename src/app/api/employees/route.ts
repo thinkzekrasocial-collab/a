@@ -22,6 +22,7 @@ interface EmployeeBody {
   employee_code?: unknown;
   name?: unknown;
   phone?: unknown;
+  nid_number?: unknown;
   city?: unknown;
   designation?: unknown;
   department?: unknown;
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     const filters = sql`
-      ${qParam ? sql`and (e.name ilike ${`%${qParam}%`} or e.employee_code ilike ${`%${qParam}%`} or coalesce(e.designation,'') ilike ${`%${qParam}%`})` : sql``}
+      ${qParam ? sql`and (e.name ilike ${`%${qParam}%`} or e.employee_code ilike ${`%${qParam}%`} or coalesce(e.nid_number,'') ilike ${`%${qParam}%`} or coalesce(e.designation,'') ilike ${`%${qParam}%`})` : sql``}
       ${department ? sql`and e.department = ${department}` : sql``}
       ${status ? sql`and e.status = ${status}` : sql``}
     `;
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
         employee_code: string;
         name: string;
         phone: string | null;
+        nid_number: string | null;
         city: string | null;
         designation: string | null;
         department: string | null;
@@ -101,6 +103,7 @@ export async function POST(request: NextRequest) {
           employeeCode,
           name,
           phone: optionalString(body.phone, 40),
+          nidNumber: optionalString(body.nid_number, 80),
           city: optionalString(body.city, 120),
           designation: optionalString(body.designation, 120),
           department: optionalString(body.department, 120),

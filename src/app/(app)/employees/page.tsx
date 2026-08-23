@@ -26,6 +26,7 @@ interface Employee {
   employee_code: string;
   name: string;
   phone: string | null;
+  nid_number: string | null;
   city: string | null;
   designation: string | null;
   department: string | null;
@@ -39,6 +40,7 @@ const emptyForm = {
   employee_code: "",
   name: "",
   phone: "",
+  nid_number: "",
   city: "",
   designation: "",
   department: "",
@@ -91,6 +93,7 @@ export default function EmployeesPage() {
       employee_code: e.employee_code,
       name: e.name,
       phone: e.phone ?? "",
+      nid_number: e.nid_number ?? "",
       city: e.city ?? "",
       designation: e.designation ?? "",
       department: e.department ?? "",
@@ -201,6 +204,7 @@ export default function EmployeesPage() {
                 "Employee ID",
                 "Name",
                 "Phone",
+                "NID number",
                 "Designation",
                 "Department",
                 "Joined",
@@ -217,6 +221,7 @@ export default function EmployeesPage() {
                   </Td>
                   <Td className="font-medium text-slate-800">{e.name}</Td>
                   <Td>{e.phone ?? "—"}</Td>
+                  <Td>{e.nid_number ?? "—"}</Td>
                   <Td>{e.designation ?? "—"}</Td>
                   <Td>{e.department ?? "—"}</Td>
                   <Td>{fmtDate(e.joining_date)}</Td>
@@ -301,6 +306,13 @@ export default function EmployeesPage() {
               value={form.city}
               onChange={(e) => setForm({ ...form, city: e.target.value })}
               placeholder="e.g. Dhaka"
+            />
+          </Field>
+          <Field label="NID number">
+            <Input
+              value={form.nid_number}
+              onChange={(e) => setForm({ ...form, nid_number: e.target.value })}
+              placeholder="National ID number"
             />
           </Field>
           <Field label="Designation">

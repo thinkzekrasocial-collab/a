@@ -273,6 +273,7 @@ export const employees = pgTable(
     employeeCode: text("employee_code").notNull(),
     name: text("name").notNull(),
     phone: text("phone"),
+    nidNumber: text("nid_number"),
     city: text("city"),
     designation: text("designation"),
     department: text("department"),

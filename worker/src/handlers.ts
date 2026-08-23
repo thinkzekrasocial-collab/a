@@ -1340,8 +1340,8 @@ async function listEmployees(req: Request, env: Env, user: SessionUser | null): 
   const conditions: string[] = [];
   const params: unknown[] = [];
   if (q) {
-    conditions.push("(e.name like ? or e.employee_code like ? or coalesce(e.designation,'') like ?)");
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    conditions.push("(e.name like ? or e.employee_code like ? or coalesce(e.nid_number,'') like ? or coalesce(e.designation,'') like ?)");
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
   }
   if (department) {
     conditions.push("e.department = ?");
@@ -1390,11 +1390,12 @@ async function createEmployee(req: Request, env: Env, user: SessionUser | null):
 
   const result = (await run(
     env.DB,
-    `insert into employees (employee_code, name, phone, city, designation, department, joining_date, offdays_taken, offdays_left, status)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `insert into employees (employee_code, name, phone, nid_number, city, designation, department, joining_date, offdays_taken, offdays_left, status)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     employeeCode,
     name,
     optString(b.phone, 40) ?? null,
+    optString(b.nid_number, 80) ?? null,
     optString(b.city, 120) ?? null,
     optString(b.designation, 120) ?? null,
     optString(b.department, 120) ?? null,
@@ -1429,12 +1430,13 @@ async function updateEmployee(req: Request, env: Env, user: SessionUser | null, 
 
   await run(
     env.DB,
-    `update employees set employee_code = ?, name = ?, phone = ?, city = ?, designation = ?, department = ?,
+    `update employees set employee_code = ?, name = ?, phone = ?, nid_number = ?, city = ?, designation = ?, department = ?,
        joining_date = ?, offdays_taken = ?, offdays_left = ?, status = ?, updated_at = datetime('now')
      where id = ?`,
     employeeCode,
     name,
     optString(b.phone, 40) ?? null,
+    optString(b.nid_number, 80) ?? null,
     optString(b.city, 120) ?? null,
     optString(b.designation, 120) ?? null,
     optString(b.department, 120) ?? null,
@@ -1484,6 +1486,7 @@ type WorkbookEntity = "employee" | "part";
 const DEFAULT_WORKBOOK_COLUMNS: Record<WorkbookEntity, object[]> = {
   employee: [
     { key: "phone", label: "Phone", type: "text" },
+    { key: "nid_number", label: "NID number", type: "text" },
     { key: "designation", label: "Designation", type: "text" },
     { key: "department", label: "Department", type: "text" },
     { key: "joining_date", label: "Joining date", type: "date" },
@@ -1592,7 +1595,7 @@ async function workbookSheet(req: Request, env: Env, user: SessionUser | null, c
   const activeId = selectedId ?? (entities[0] as { id?: number } | undefined)?.id;
   const entity = activeId
     ? menu.entity_type === "employee"
-      ? await one<Record<string, unknown>>(env.DB, `select id, employee_code, name, phone, designation, department, joining_date, current_salary, last_increment_date, status from employees where id = ?`, activeId)
+      ? await one<Record<string, unknown>>(env.DB, `select id, employee_code, name, phone, nid_number, city, designation, department, joining_date, offdays_taken, offdays_left, status from employees where id = ?`, activeId)
       : await one<Record<string, unknown>>(env.DB, `select * from v_part_balance where id = ?`, activeId)
     : null;
   if (selectedId && !entity) throw new HttpError(404, "Record not found.");
@@ -2326,7 +2329,7 @@ async function exportCsv(req: Request, env: Env, user: SessionUser | null): Prom
     case "employees":
       rows = await all(
         env.DB,
-        `select employee_code, name, phone, designation, department, joining_date,
+        `select employee_code, name, phone, nid_number, city, designation, department, joining_date,
                 current_salary, last_increment_date, status
          from employees order by name asc`
       );

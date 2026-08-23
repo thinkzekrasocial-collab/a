@@ -23,6 +23,7 @@ interface MenuBody { name?: unknown; entity_type?: unknown; icon?: unknown; desc
 const DEFAULT_COLUMNS: Record<EntityType, MenuColumn[]> = {
   employee: [
     { key: "phone", label: "Phone", type: "text" },
+    { key: "nid_number", label: "NID number", type: "text" },
     { key: "designation", label: "Designation", type: "text" },
     { key: "department", label: "Department", type: "text" },
     { key: "joining_date", label: "Joining date", type: "date" },
