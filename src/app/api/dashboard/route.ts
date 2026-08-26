@@ -112,7 +112,9 @@ export async function GET(request: NextRequest) {
           select p.id, p.part_code, p.part_name, p.unit_of_measure, p.minimum_stock,
             (p.opening_stock + coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'IN'), 0) - coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'OUT'), 0))::float8 as current_balance
           from parts p
-        ) pb order by pb.part_name asc limit 100
+        ) pb order by lower(left(pb.part_code, 2)) asc,
+          coalesce(nullif(regexp_replace(substring(pb.part_code from 3), '[^0-9].*$', ''), ''), '0')::int asc,
+          lower(pb.part_code) asc limit 100
       `),
       q<{ id: number; machine_code: string; machine_name: string; status: string; availability_status: string; model: string | null; machine_type_name: string; unit_name: string; floor_name: string }>(sql`
         select m.id, m.machine_code, m.machine_name, m.status, m.model,
@@ -124,7 +126,9 @@ export async function GET(request: NextRequest) {
         left join machine_types mt on mt.id = m.machine_type_id
         left join units u on u.id = m.unit_id
         left join floors f on f.id = m.floor_id
-        order by m.machine_name asc limit 100
+        order by lower(left(coalesce(nullif(m.serial_number, ''), m.machine_code), 2)) asc,
+          coalesce(nullif(regexp_replace(substring(coalesce(nullif(m.serial_number, ''), m.machine_code) from 3), '[^0-9].*$', ''), ''), '0')::int asc,
+          lower(coalesce(nullif(m.serial_number, ''), m.machine_code)) asc limit 100
       `),
     ]);
 

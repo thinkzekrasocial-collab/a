@@ -84,7 +84,9 @@ export async function GET(request: NextRequest) {
         left join units u on u.id = m.unit_id
         left join floors f on f.id = m.floor_id
         where 1=1 ${filters}
-        order by m.id desc
+        order by lower(left(coalesce(nullif(m.serial_number, ''), m.machine_code), 2)) asc,
+                 coalesce(nullif(regexp_replace(substring(coalesce(nullif(m.serial_number, ''), m.machine_code) from 3), '[^0-9].*$', ''), ''), '0')::int asc,
+                 lower(coalesce(nullif(m.serial_number, ''), m.machine_code)) asc
         limit ${limit} offset ${offset}
       `),
       qOne<{ total: number }>(

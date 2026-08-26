@@ -83,7 +83,9 @@ export async function GET(request: NextRequest) {
                      - coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'OUT'), 0)
                    )::float8 as current_balance
             from parts p
-            order by p.part_name asc
+            order by lower(left(p.part_code, 2)) asc,
+                     coalesce(nullif(regexp_replace(substring(p.part_code from 3), '[^0-9].*$', ''), ''), '0')::int asc,
+                     lower(p.part_code) asc
           `),
         });
 

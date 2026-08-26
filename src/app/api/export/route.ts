@@ -35,7 +35,9 @@ export async function GET(request: NextRequest) {
           join machine_types mt on mt.id = m.machine_type_id
           join units u on u.id = m.unit_id
           join floors f on f.id = m.floor_id
-          order by m.machine_code asc
+          order by lower(left(coalesce(nullif(m.serial_number, ''), m.machine_code), 2)) asc,
+                   coalesce(nullif(regexp_replace(substring(coalesce(nullif(m.serial_number, ''), m.machine_code) from 3), '[^0-9].*$', ''), ''), '0')::int asc,
+                   lower(coalesce(nullif(m.serial_number, ''), m.machine_code)) asc
         `);
         filename = "machine-list.csv";
         break;
@@ -49,7 +51,9 @@ export async function GET(request: NextRequest) {
                    - coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'OUT'), 0)
                  )::float8 as current_balance
           from parts p
-          order by p.part_name asc
+          order by lower(left(p.part_code, 2)) asc,
+                   coalesce(nullif(regexp_replace(substring(p.part_code from 3), '[^0-9].*$', ''), ''), '0')::int asc,
+                   lower(p.part_code) asc
         `);
         filename = "parts-stock.csv";
         break;

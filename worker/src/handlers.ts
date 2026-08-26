@@ -683,7 +683,9 @@ async function listMachines(req: Request, env: Env, user: SessionUser | null): P
      left join units u on u.id = m.unit_id
      left join floors f on f.id = m.floor_id
      ${where}
-     order by m.id desc
+     order by lower(substr(coalesce(nullif(m.serial_number, ''), m.machine_code), 1, 2)) asc,
+              cast(substr(coalesce(nullif(m.serial_number, ''), m.machine_code), 3) as integer) asc,
+              lower(coalesce(nullif(m.serial_number, ''), m.machine_code)) asc
      limit ? offset ?`,
     ...params,
     limit,
@@ -984,7 +986,11 @@ async function listParts(req: Request, env: Env, user: SessionUser | null): Prom
 
   const rows = await all(
     env.DB,
-    `select * from v_part_balance pb ${where} order by pb.part_name asc limit ? offset ?`,
+    `select * from v_part_balance pb ${where}
+     order by lower(substr(pb.part_code, 1, 2)) asc,
+              cast(substr(pb.part_code, 3) as integer) asc,
+              lower(pb.part_code) asc
+     limit ? offset ?`,
     ...params,
     limit,
     offset
@@ -1591,7 +1597,7 @@ async function workbookSheet(req: Request, env: Env, user: SessionUser | null, c
   const selectedId = optInt(query.get("entity_id"), "Entity ID");
   const entities = menu.entity_type === "employee"
     ? await all(env.DB, `select id, employee_code as code, name, employee_code || ' — ' || name as label from employees order by name asc`)
-    : await all(env.DB, `select id, part_code as code, part_name as name, part_code || ' — ' || part_name as label, current_balance from v_part_balance order by part_name asc`);
+    : await all(env.DB, `select id, part_code as code, part_name as name, part_code || ' — ' || part_name as label, current_balance from v_part_balance order by lower(substr(part_code, 1, 2)) asc, cast(substr(part_code, 3) as integer) asc, lower(part_code) asc`);
   const activeId = selectedId ?? (entities[0] as { id?: number } | undefined)?.id;
   const entity = activeId
     ? menu.entity_type === "employee"
@@ -2070,7 +2076,9 @@ async function dashboard(env: Env, user: SessionUser | null): Promise<Response> 
   const partAvailability = await all(
     env.DB,
     `select id, part_code, part_name, unit_of_measure, current_balance, minimum_stock
-     from v_part_balance order by part_name asc limit 100`
+     from v_part_balance
+     order by lower(substr(part_code, 1, 2)) asc, cast(substr(part_code, 3) as integer) asc, lower(part_code) asc
+     limit 100`
   );
   const machineAvailability = await all(
     env.DB,
@@ -2083,7 +2091,10 @@ async function dashboard(env: Env, user: SessionUser | null): Promise<Response> 
      left join machine_types mt on mt.id = m.machine_type_id
      left join units u on u.id = m.unit_id
      left join floors f on f.id = m.floor_id
-     order by m.machine_name asc limit 100`
+     order by lower(substr(coalesce(nullif(m.serial_number, ''), m.machine_code), 1, 2)) asc,
+              cast(substr(coalesce(nullif(m.serial_number, ''), m.machine_code), 3) as integer) asc,
+              lower(coalesce(nullif(m.serial_number, ''), m.machine_code)) asc
+     limit 100`
   );
 
   return json({
@@ -2143,7 +2154,7 @@ async function reports(req: Request, env: Env, user: SessionUser | null): Promis
         rows: await all(env.DB, `select status, count(*) as total_machines from machines group by status order by total_machines desc`),
       });
     case "current-stock":
-      return json({ rows: await all(env.DB, `select * from v_part_balance order by part_name asc`) });
+      return json({ rows: await all(env.DB, `select * from v_part_balance order by lower(substr(part_code, 1, 2)) asc, cast(substr(part_code, 3) as integer) asc, lower(part_code) asc`) });
     case "stock-in":
     case "stock-out": {
       const isIn = type === "stock-in";
@@ -2284,12 +2295,14 @@ async function exportCsv(req: Request, env: Env, user: SessionUser | null): Prom
          join machine_types mt on mt.id = m.machine_type_id
          join units u on u.id = m.unit_id
          join floors f on f.id = m.floor_id
-         order by m.machine_code asc`
+         order by lower(substr(coalesce(nullif(m.serial_number, ''), m.machine_code), 1, 2)) asc,
+                  cast(substr(coalesce(nullif(m.serial_number, ''), m.machine_code), 3) as integer) asc,
+                  lower(coalesce(nullif(m.serial_number, ''), m.machine_code)) asc`
       );
       filename = "machine-list.csv";
       break;
     case "parts":
-      rows = await all(env.DB, `select * from v_part_balance order by part_name asc`);
+      rows = await all(env.DB, `select * from v_part_balance order by lower(substr(part_code, 1, 2)) asc, cast(substr(part_code, 3) as integer) asc, lower(part_code) asc`);
       filename = "parts-stock.csv";
       break;
     case "transactions": {

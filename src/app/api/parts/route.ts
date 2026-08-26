@@ -78,7 +78,9 @@ export async function GET(request: NextRequest) {
       }>(sql`
         select pb.* from (${PART_SELECT} where 1=1 ${filters}) pb
         where 1=1 ${stockFilter}
-        order by pb.part_name asc
+        order by lower(left(pb.part_code, 2)) asc,
+                 coalesce(nullif(regexp_replace(substring(pb.part_code from 3), '[^0-9].*$', ''), ''), '0')::int asc,
+                 lower(pb.part_code) asc
         limit ${limit} offset ${offset}
       `),
       qOne<{ total: number }>(sql`

@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, context: Ctx) {
     const selectedId = entityId ? parseId(entityId, "entity ID") : undefined;
     const entities = menu.entity_type === "employee"
       ? await q<{ id: number; code: string; name: string; label: string }>(sql`select id, employee_code as code, name, employee_code || ' — ' || name as label from employees order by name asc`)
-      : await q<{ id: number; code: string; name: string; label: string; current_balance: number }>(sql`select p.id, p.part_code as code, p.part_name as name, p.part_code || ' — ' || p.part_name as label, (p.opening_stock + coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'IN'), 0) - coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'OUT'), 0))::float8 as current_balance from parts p order by p.part_name asc`);
+      : await q<{ id: number; code: string; name: string; label: string; current_balance: number }>(sql`select p.id, p.part_code as code, p.part_name as name, p.part_code || ' — ' || p.part_name as label, (p.opening_stock + coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'IN'), 0) - coalesce((select sum(quantity) from stock_transactions t where t.part_id = p.id and t.transaction_type = 'OUT'), 0))::float8 as current_balance from parts p order by lower(left(p.part_code, 2)) asc, coalesce(nullif(regexp_replace(substring(p.part_code from 3), '[^0-9].*$', ''), ''), '0')::int asc, lower(p.part_code) asc`);
     const activeId = selectedId ?? entities[0]?.id;
     const entity = activeId
       ? (menu.entity_type === "employee"
