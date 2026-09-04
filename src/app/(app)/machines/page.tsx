@@ -111,6 +111,7 @@ export default function MachinesPage() {
   const canCreate = perms.includes("machine.create");
   const canEdit = perms.includes("machine.edit");
   const canDelete = perms.includes("machine.delete");
+  const canStockOut = perms.includes("stock.out");
 
   const openCreate = () => {
     setEditing(null);
@@ -341,6 +342,11 @@ export default function MachinesPage() {
                   <Td><Badge tone={m.availability_status === "Available" ? "green" : "red"}>{m.availability_status}</Badge></Td>
                   <Td>
                     <div className="flex gap-1.5">
+                      {canStockOut && m.availability_status === "Available" && (
+                        <Link href={`/machines/stock-out?machine_id=${m.id}`}>
+                          <Button size="sm" variant="danger">OUT</Button>
+                        </Link>
+                      )}
                       {canEdit && (
                         <Button size="sm" variant="secondary" onClick={() => openEdit(m)}>
                           Edit

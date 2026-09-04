@@ -1,4 +1,4 @@
-# 🩺 AB Maintenance BD — Troubleshooting Guide
+# 🩺 Globe Safety — Troubleshooting Guide
 
 How to read this guide: find your error below. Each entry has
 **What it means → Likely cause → Fix → Retry**.

@@ -1,4 +1,4 @@
-# ☁️ AB Maintenance BD — Cloudflare Deployment Guide (Beginner Edition)
+# ☁️ Globe Safety — Cloudflare Deployment Guide (Beginner Edition)
 
 This guide takes you from **"I have never used Cloudflare"** to **"my app is live on
 Cloudflare Workers + D1"** — one logical step at a time.

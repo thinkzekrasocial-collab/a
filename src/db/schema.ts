@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 /**
- * AB Maintenance BD — normalized schema.
+ * Globe Safety — normalized schema.
  *
  * Every table here has an exact twin in the Cloudflare D1 (SQLite) migration
  * files under `worker/migrations/`. Column names intentionally use snake_case

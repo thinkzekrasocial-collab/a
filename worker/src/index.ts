@@ -1,5 +1,5 @@
 /**
- * AB Maintenance BD — Cloudflare Worker entry point.
+ * Globe Safety — Cloudflare Worker entry point.
  *
  * Serves the complete REST API from Cloudflare Workers + D1.
  * See ./handlers.ts for the endpoint implementations.

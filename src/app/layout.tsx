@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AB Maintenance BD — Machine & Parts Management",
+  title: "Globe Safety — Machine & Parts Management",
   description:
     "Factory machine management, parts inventory with stock ledger, employees, reports and audit logs.",
 };

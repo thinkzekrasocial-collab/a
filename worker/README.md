@@ -1,4 +1,4 @@
-# ☁️ AB Maintenance BD — Cloudflare Worker + D1 backend
+# ☁️ Globe Safety — Cloudflare Worker + D1 backend
 
 This folder contains the production backend: a **Cloudflare Worker** serving the
 complete REST API backed by a **D1 (SQLite)** database. No runtime dependencies

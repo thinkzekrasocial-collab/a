@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { api, ApiClientError, fmtDate, fmtNum, useApi } from "@/lib/api";
 import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select, Spinner, Table, Td, Textarea } from "@/components/ui";
 import { useToast } from "@/components/Toast";
@@ -11,13 +12,14 @@ interface PartLine { part_id: string; quantity: string; }
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function MachineStockOutPage() {
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { data: me } = useApi<{ user: { permissions: string[] } }>("/api/auth/me");
   const { data: machinesData, loading: machinesLoading } = useApi<{ items: MachineOption[] }>("/api/machines?availability=available&limit=100");
   const { data: partsData } = useApi<{ items: PartOption[] }>("/api/parts?limit=100");
   const { data: recent, loading: recentLoading, reload } = useApi<{ items: { id: number; machine_name: string; machine_code: string; transaction_type: string; transaction_date: string; customer: string | null; destination: string | null; sale_price: number | null; created_by_name: string }[] }>("/api/machine-stock/transactions?limit=100");
   const canOut = me?.user.permissions.includes("stock.out") ?? false;
-  const [form, setForm] = useState({ machine_id: "", transaction_date: today(), destination: "", customer: "", reason: "Sold", sale_price: "", reference_number: "", note: "" });
+  const [form, setForm] = useState({ machine_id: searchParams.get("machine_id") ?? "", transaction_date: today(), destination: "", customer: "", reason: "Sold", sale_price: "", reference_number: "", note: "" });
   const [parts, setParts] = useState<PartLine[]>([]);
   const [saving, setSaving] = useState(false);
 

@@ -1,5 +1,5 @@
 /**
- * Development seed for AB Maintenance BD (PostgreSQL).
+ * Development seed for Globe Safety (PostgreSQL).
  *
  * Run with:  npx tsx src/db/seed.ts
  *
@@ -32,7 +32,7 @@ import { ALL_PERMISSIONS, ROLE_TEMPLATES } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
 
 async function seed() {
-  console.log("Seeding AB Maintenance BD database...");
+  console.log("Seeding Globe Safety database...");
 
   const existing = await db.execute(sql`select count(*)::int as total from permissions`);
   const total = Number((existing.rows[0] as { total: number }).total ?? 0);

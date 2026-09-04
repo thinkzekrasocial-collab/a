@@ -2,7 +2,7 @@
   "name": "ab-maintenance-bd-worker",
   "version": "1.0.0",
   "private": true,
-  "description": "AB Maintenance BD — Cloudflare Worker + D1 backend (REST API).",
+  "description": "Globe Safety — Cloudflare Worker + D1 backend (REST API).",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

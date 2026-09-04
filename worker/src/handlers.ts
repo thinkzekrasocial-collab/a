@@ -1,5 +1,5 @@
 /**
- * AB Maintenance BD — all API endpoints for Cloudflare Workers + D1.
+ * Globe Safety — all API endpoints for Cloudflare Workers + D1.
  *
  * Every protected endpoint validates the session AND the permission
  * server-side. Hiding a button in the UI is never enough.

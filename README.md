@@ -1,4 +1,4 @@
-# 🏭 AB Maintenance BD
+# 🏭 Globe Safety
 
 **Machine Management + Parts Inventory Management System** for factory
 operations — with Employee Management, Authentication, Role-Based Permissions,
